@@ -1,90 +1,90 @@
 # gh-monitor
 
-Monitor GitHub repos and dispatch work to OpenCode agents via [opencode-pilot](https://github.com/athal7/opencode-pilot).
-
-When an issue is assigned to you or a PR needs attention, opencode-pilot polls GitHub, creates an OpenCode session for the repo, and sends the task as a prompt.
+Poll GitHub repos for activity and dispatch work to OpenCode agent sessions. Each PR and issue gets its own persistent session with full context accumulation.
 
 ## Setup
 
 ```bash
 npm install
-npm run install-config
-```
-
-## Usage
-
-```bash
-npm start           # Start polling (foreground)
-npm run status      # Show service status
-npm run config      # Validate configuration
-npm run logs        # Tail the log
-npm run test-issues # Dry-run the issues source
-npm run test-prs    # Dry-run the PR attention source
-npm run clear       # Reset processed-item state
-```
-
-## What it watches
-
-| Source | Trigger | Prompt |
-|--------|---------|--------|
-| `github/my-issues` | Issues assigned to me | `default` |
-| `github/my-prs-attention` | My PRs with conflicts or review feedback | `review-feedback` |
-
-Currently configured for `g2crowd/buyer_intent_api`. Edit `pilot/config.yaml` to add more.
-
-## How it responds to your comments
-
-`my-prs-attention` enriches PRs with comment data on each poll. When it detects new **actionable feedback** — a reviewer comment, an inline code comment, or a formal review — it spawns/re-enters an OpenCode session.
-
-**What triggers a session:**
-- Reviewer leaves a comment or requests changes on your PR
-- You leave an **inline comment on the diff** (standalone, not a reply)
-- You submit a formal PR review on your own PR
-
-**What does NOT trigger:**
-- Your own top-level comments in the conversation tab (filtered as author noise)
-- Bot comments (dependabot, github-actions, linear)
-- Approval-only reviews with no body text
-
-**Workaround for self-commenting:** Create an issue and assign it to yourself — `github/my-issues` picks those up directly.
-
-## Project structure
-
-```
-gh-monitor/
-├── bin/gh-monitor          # Standalone bash poller (no opencode-pilot dependency)
-├── pilot/
-│   ├── config.yaml         # opencode-pilot configuration
-│   └── templates/
-│       ├── default.md      # Issue work prompt
-│       └── review-feedback.md
-├── package.json
-└── README.md
 ```
 
 ## Configuration
 
-Edit `pilot/config.yaml`, then `npm run install-config` to copy it into place.
+Create `gh-monitor.json` in the project root (or `~/.config/gh-monitor/config.json`):
 
-### Adding repos
-
-```yaml
-sources:
-  - preset: github/my-issues
-    repos:
-      - g2crowd/buyer_intent_api
-      - g2crowd/ue
+```json
+{
+  "repos": ["g2crowd/ue", "g2crowd/buyer_intent_api"],
+  "repoDirectories": {
+    "g2crowd/ue": "~/code/ue",
+    "g2crowd/buyer_intent_api": "~/code/buyer_intent_api"
+  },
+  "intervalMs": 60000
+}
 ```
 
-### Adding prompt templates
+| Field | Required | Description |
+|-------|----------|-------------|
+| `repos` | yes | GitHub repos to watch (`owner/name`) |
+| `repoDirectories` | yes | Map of repo → local checkout path |
+| `owner` | no | GitHub login to watch (default: `gh` authenticated user) |
+| `intervalMs` | no | Poll interval in ms (default: 60000) |
 
-Add `.md` files to `pilot/templates/`. Use `{title}`, `{body}`, `{number}`, `{html_url}` as placeholders. Reference by filename (without `.md`) in the `prompt:` field.
+## Usage
 
-### Worktree isolation
+```bash
+npm run dev       # Run with tsx (no build step)
+npm run build     # Compile TypeScript
+npm start         # Run compiled JS
+```
 
-```yaml
-sources:
-  - preset: github/my-issues
-    worktree: "new"
-    worktree_name: "issue-{number}"
+## How it works
+
+1. **Poller** (`src/poller.ts`) — calls `gh` CLI every `intervalMs` to check for new PR comments, review comments, and issues from `owner` on configured repos
+2. **Dispatcher** (`src/dispatcher.ts`) — uses `@opencode-ai/sdk` to create/resume OpenCode sessions. One session per PR or issue, so context accumulates across multiple comments
+3. **Entry point** (`src/index.ts`) — loads config, wires poller → dispatcher, handles shutdown
+
+## What it watches
+
+| Event | Source |
+|-------|--------|
+| `pr_comment` | Your comments on the conversation tab of your open PRs |
+| `pr_review_comment` | Your inline code review comments on your open PRs |
+| `new_issue` | Issues you create on watched repos |
+
+## Session management
+
+Sessions are keyed by `repo#pr-N` or `repo#issue-N`. When a new event arrives for a PR/issue that already has a session, the dispatcher sends the new prompt to the existing session — the agent has full history of everything that's happened on that PR/issue.
+
+Session state persists in `~/.local/share/gh-monitor/sessions.json`.
+
+## Architecture
+
+```
+gh-monitor.json (config)
+       │
+       ▼
+   index.ts (wires everything)
+       │
+       ├── poller.ts ──▶ gh CLI ──▶ GitHub API
+       │       │
+       │       ▼ (GitHubEvent)
+       │
+       └── dispatcher.ts ──▶ @opencode-ai/sdk ──▶ OpenCode sessions
+```
+
+## Adding pollers
+
+The poller is a simple class. To add Jira, Linear, or any other source:
+
+1. Create a new poller class that emits events with the same `GitHubEvent` shape (or extend it)
+2. Wire it into `index.ts` alongside the GitHub poller
+3. The dispatcher doesn't care where events come from — it just needs `repo`, `body`, and a way to key the session
+
+## Standalone bash poller
+
+`bin/gh-monitor` is the original bash script — lightweight, no dependencies, emits JSONL. Useful for environments without Node.
+
+```bash
+bin/gh-monitor g2crowd/ue --interval 30
 ```

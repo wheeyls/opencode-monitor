@@ -1,0 +1,11 @@
+{
+  "repos": [
+    "g2crowd/ue",
+    "g2crowd/buyer_intent_api"
+  ],
+  "repoDirectories": {
+    "g2crowd/ue": "~/code/ue",
+    "g2crowd/buyer_intent_api": "~/code/buyer_intent_api"
+  },
+  "intervalMs": 60000
+}

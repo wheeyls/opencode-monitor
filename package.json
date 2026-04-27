@@ -2,17 +2,18 @@
   "name": "gh-monitor",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "start": "opencode-pilot start",
-    "status": "opencode-pilot status",
-    "config": "opencode-pilot config",
-    "logs": "opencode-pilot logs --follow",
-    "test-issues": "opencode-pilot test-source github-my-issues",
-    "test-prs": "opencode-pilot test-source my-prs-attention",
-    "clear": "opencode-pilot clear --all",
-    "install-config": "mkdir -p ~/.config/opencode/pilot && cp pilot/config.yaml ~/.config/opencode/pilot/config.yaml && cp -r pilot/templates ~/.config/opencode/pilot/"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "opencode-pilot": "^0.27.0"
+    "@opencode-ai/sdk": "^1.14.28"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
   }
 }
