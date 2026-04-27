@@ -1,0 +1,18 @@
+{
+  "name": "gh-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "opencode-pilot start",
+    "status": "opencode-pilot status",
+    "config": "opencode-pilot config",
+    "logs": "opencode-pilot logs --follow",
+    "test-issues": "opencode-pilot test-source github-my-issues",
+    "test-prs": "opencode-pilot test-source my-prs-attention",
+    "clear": "opencode-pilot clear --all",
+    "install-config": "mkdir -p ~/.config/opencode/pilot && cp pilot/config.yaml ~/.config/opencode/pilot/config.yaml && cp -r pilot/templates ~/.config/opencode/pilot/"
+  },
+  "dependencies": {
+    "opencode-pilot": "^0.27.0"
+  }
+}
