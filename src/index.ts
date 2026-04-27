@@ -1,14 +1,26 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { GitHubPoller, type PollerConfig } from "./poller.js";
-import { Dispatcher, type DispatcherConfig } from "./dispatcher.js";
+import type { MonitorEvent } from "./events.js";
+import { GitHubPoller } from "./poller.js";
+import { JiraPoller } from "./jira-poller.js";
+import { Dispatcher } from "./dispatcher.js";
+
+interface JiraConfig {
+  baseUrl: string;
+  email: string;
+  apiToken: string;
+  boardId: number;
+}
 
 interface Config {
   repos: string[];
   repoDirectories: Record<string, string>;
   owner?: string;
   intervalMs?: number;
+  triggerPhrases?: string[];
+  jira?: JiraConfig;
+  jiraWorkingDir?: string;
 }
 
 function loadConfig(): Config {
@@ -25,20 +37,7 @@ function loadConfig(): Config {
   }
 
   throw new Error(
-    `No config found. Create gh-monitor.json in the project root or ~/.config/gh-monitor/config.json\n\n` +
-    `Example:\n` +
-    JSON.stringify(
-      {
-        repos: ["g2crowd/ue", "g2crowd/buyer_intent_api"],
-        repoDirectories: {
-          "g2crowd/ue": "~/code/ue",
-          "g2crowd/buyer_intent_api": "~/code/buyer_intent_api",
-        },
-        intervalMs: 60000,
-      },
-      null,
-      2
-    )
+    `No config found. Create gh-monitor.json or ~/.config/gh-monitor/config.json`
   );
 }
 
@@ -48,42 +47,58 @@ function expandHome(p: string): string {
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  const intervalMs = config.intervalMs ?? 60_000;
 
   const repoDirectories: Record<string, string> = {};
   for (const [repo, dir] of Object.entries(config.repoDirectories)) {
     repoDirectories[repo] = expandHome(dir);
   }
 
-  const dispatcher = new Dispatcher({ repoDirectories });
+  const jiraWorkingDir = config.jiraWorkingDir ? expandHome(config.jiraWorkingDir) : undefined;
+
+  const dispatcher = new Dispatcher({
+    directoryResolver: (event: MonitorEvent) => {
+      if (event.source === "jira") return jiraWorkingDir;
+      return event.repo ? repoDirectories[event.repo] : undefined;
+    },
+  });
   await dispatcher.start();
 
-  const poller = new GitHubPoller({
-    repos: config.repos,
-    owner: config.owner,
-    intervalMs: config.intervalMs ?? 60_000,
-  });
-
-  poller.start(async (event) => {
-    console.log(`[event] ${event.type} on ${event.repo}: ${event.body.slice(0, 80)}`);
+  const onEvent = async (event: MonitorEvent) => {
+    console.log(`[event] ${event.source}/${event.type} ${event.key}: ${event.body.slice(0, 80)}`);
     try {
       await dispatcher.dispatch(event);
     } catch (err) {
       console.error(`[dispatch] Failed:`, (err as Error).message);
     }
-  });
+  };
 
-  process.on("SIGINT", async () => {
+  const githubPoller = new GitHubPoller({
+    repos: config.repos,
+    owner: config.owner,
+    intervalMs,
+    triggerPhrases: config.triggerPhrases,
+  });
+  githubPoller.start(onEvent);
+
+  if (config.jira) {
+    const jiraPoller = new JiraPoller({
+      ...config.jira,
+      intervalMs,
+      triggerPhrases: config.triggerPhrases,
+    });
+    jiraPoller.start(onEvent);
+  }
+
+  const shutdown = async () => {
     console.log("\nShutting down...");
-    poller.stop();
+    githubPoller.stop();
     await dispatcher.stop();
     process.exit(0);
-  });
+  };
 
-  process.on("SIGTERM", async () => {
-    poller.stop();
-    await dispatcher.stop();
-    process.exit(0);
-  });
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 main().catch((err) => {

@@ -2,26 +2,14 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-
-export interface GitHubEvent {
-  type: "pr_comment" | "pr_review_comment" | "new_issue";
-  repo: string;
-  pr?: number;
-  issue?: number;
-  commentId?: number;
-  body: string;
-  file?: string;
-  line?: string;
-  diffHunk?: string;
-  url: string;
-  createdAt: string;
-}
+import type { MonitorEvent } from "./events.js";
 
 export interface PollerConfig {
   repos: string[];
   owner?: string;
   intervalMs: number;
   stateDir?: string;
+  triggerPhrases?: string[];
 }
 
 function gh(args: string): string {
@@ -42,11 +30,13 @@ export class GitHubPoller {
   private owner: string;
   private repos: string[];
   private intervalMs: number;
+  private triggerPhrases: string[];
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: PollerConfig) {
     this.repos = config.repos;
     this.intervalMs = config.intervalMs;
+    this.triggerPhrases = (config.triggerPhrases ?? []).map(p => p.toLowerCase());
     this.stateDir = config.stateDir ?? join(homedir(), ".local", "share", "gh-monitor");
     this.seenFile = join(this.stateDir, "seen.txt");
     this.lastPollFile = join(this.stateDir, "last_poll.txt");
@@ -64,8 +54,8 @@ export class GitHubPoller {
     this.owner = config.owner ?? gh("api user --jq .login");
   }
 
-  start(onEvent: (event: GitHubEvent) => void): void {
-    console.log(`[poller] Watching ${this.repos.join(", ")} as ${this.owner} every ${this.intervalMs / 1000}s`);
+  start(onEvent: (event: MonitorEvent) => void): void {
+    console.log(`[github] Watching ${this.repos.length} repos as ${this.owner} every ${this.intervalMs / 1000}s`);
     this.poll(onEvent);
     this.timer = setInterval(() => this.poll(onEvent), this.intervalMs);
   }
@@ -77,7 +67,7 @@ export class GitHubPoller {
     }
   }
 
-  private poll(onEvent: (event: GitHubEvent) => void): void {
+  private poll(onEvent: (event: MonitorEvent) => void): void {
     const since = this.lastPoll;
     const now = new Date().toISOString();
 
@@ -95,7 +85,7 @@ export class GitHubPoller {
     writeFileSync(this.lastPollFile, now);
   }
 
-  private pollPrComments(repo: string, since: string, onEvent: (e: GitHubEvent) => void): void {
+  private pollPrComments(repo: string, since: string, onEvent: (e: MonitorEvent) => void): void {
     const prs = ghJson<Array<{ number: number }>>(
       `pr list --repo ${repo} --author ${this.owner} --state open --json number`
     );
@@ -108,22 +98,24 @@ export class GitHubPoller {
 
       for (const c of comments) {
         if (c.user.login !== this.owner) continue;
+        if (!this.matchesTrigger(c.body)) continue;
         if (this.markSeen(`comment_${c.id}`)) continue;
 
         onEvent({
+          source: "github",
           type: "pr_comment",
+          key: `${repo}#pr-${pr.number}`,
           repo,
-          pr: pr.number,
-          commentId: c.id,
           body: c.body,
           url: c.html_url,
           createdAt: c.created_at,
+          meta: { pr: pr.number, commentId: c.id },
         });
       }
     }
   }
 
-  private pollPrReviewComments(repo: string, since: string, onEvent: (e: GitHubEvent) => void): void {
+  private pollPrReviewComments(repo: string, since: string, onEvent: (e: MonitorEvent) => void): void {
     const prs = ghJson<Array<{ number: number }>>(
       `pr list --repo ${repo} --author ${this.owner} --state open --json number`
     );
@@ -137,25 +129,24 @@ export class GitHubPoller {
 
       for (const c of comments) {
         if (c.user.login !== this.owner) continue;
+        if (!this.matchesTrigger(c.body)) continue;
         if (this.markSeen(`review_${c.id}`)) continue;
 
         onEvent({
+          source: "github",
           type: "pr_review_comment",
+          key: `${repo}#pr-${pr.number}`,
           repo,
-          pr: pr.number,
-          commentId: c.id,
           body: c.body,
-          file: c.path,
-          line: String(c.line ?? ""),
-          diffHunk: c.diff_hunk,
           url: c.html_url,
           createdAt: c.created_at,
+          meta: { pr: pr.number, commentId: c.id, file: c.path, line: c.line, diffHunk: c.diff_hunk },
         });
       }
     }
   }
 
-  private pollIssues(repo: string, since: string, onEvent: (e: GitHubEvent) => void): void {
+  private pollIssues(repo: string, since: string, onEvent: (e: MonitorEvent) => void): void {
     const issues = ghJson<Array<{
       number: number; title: string; body: string;
       created_at: string; html_url: string;
@@ -164,17 +155,27 @@ export class GitHubPoller {
 
     for (const iss of issues) {
       if (iss.pull_request) continue;
+      const issueText = `${iss.title}\n${iss.body ?? ""}`;
+      if (!this.matchesTrigger(issueText)) continue;
       if (this.markSeen(`issue_${iss.number}`)) continue;
 
       onEvent({
+        source: "github",
         type: "new_issue",
+        key: `${repo}#issue-${iss.number}`,
         repo,
-        issue: iss.number,
         body: `${iss.title}\n\n${iss.body ?? ""}`,
         url: iss.html_url,
         createdAt: iss.created_at,
+        meta: { issue: iss.number },
       });
     }
+  }
+
+  private matchesTrigger(text: string): boolean {
+    if (this.triggerPhrases.length === 0) return true;
+    const lower = text.toLowerCase();
+    return this.triggerPhrases.some(phrase => lower.includes(phrase));
   }
 
   /** Returns true if already seen */
