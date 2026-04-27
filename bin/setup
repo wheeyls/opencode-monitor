@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PILOT_CONFIG_DIR="$HOME/.config/opencode/pilot"
+
+echo "gh-monitor setup"
+echo "================"
+
+if ! command -v opencode-pilot &>/dev/null; then
+  echo "Installing opencode-pilot..."
+  npm install -g opencode-pilot
+fi
+
+echo "Linking config → $PILOT_CONFIG_DIR"
+mkdir -p "$PILOT_CONFIG_DIR"
+
+ln -sfn "$SCRIPT_DIR/pilot/config.yaml" "$PILOT_CONFIG_DIR/config.yaml"
+ln -sfn "$SCRIPT_DIR/pilot/templates" "$PILOT_CONFIG_DIR/templates"
+
+echo ""
+opencode-pilot config
+
+echo ""
+echo "Ready. Start with: opencode-pilot start"

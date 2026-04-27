@@ -1,0 +1,15 @@
+repos_dir: ~/code
+
+defaults:
+  agent: build
+  prompt: default
+
+sources:
+  - preset: github/my-issues
+    repos:
+      - g2crowd/buyer_intent_api
+
+  - preset: github/my-prs-attention
+    prompt: review-feedback
+    repos:
+      - g2crowd/buyer_intent_api

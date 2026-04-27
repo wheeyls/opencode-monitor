@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+Usage: gh-monitor <repo> [--owner <login>] [--interval <seconds>]
+
+Poll a GitHub repo for new PR comments, review comments, and issues.
+Events are written as JSONL to \$STATE_DIR/events.jsonl.
+
+Arguments:
+  repo        GitHub repo in owner/name format (e.g. g2crowd/buyer_intent_api)
+
+Options:
+  --owner     GitHub login to watch (default: current gh user)
+  --interval  Seconds between polls (default: 60)
+  --state-dir Override state directory (default: ~/.local/share/gh-monitor/<repo-slug>)
+  --reset     Clear seen-event state and start fresh
+  -h, --help  Show this help
+EOF
+  exit 0
+}
+
+REPO=""
+OWNER=""
+INTERVAL=60
+STATE_DIR=""
+RESET=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)    usage ;;
+    --owner)      OWNER="$2"; shift 2 ;;
+    --interval)   INTERVAL="$2"; shift 2 ;;
+    --state-dir)  STATE_DIR="$2"; shift 2 ;;
+    --reset)      RESET=true; shift ;;
+    -*)           echo "Unknown option: $1" >&2; exit 1 ;;
+    *)            REPO="$1"; shift ;;
+  esac
+done
+
+if [[ -z "$REPO" ]]; then
+  echo "Error: repo argument required" >&2
+  usage
+fi
+
+if [[ -z "$OWNER" ]]; then
+  OWNER=$(gh api user --jq '.login' 2>/dev/null) || { echo "Error: could not determine GitHub user. Pass --owner." >&2; exit 1; }
+fi
+
+REPO_SLUG="${REPO//\//_}"
+STATE_DIR="${STATE_DIR:-$HOME/.local/share/gh-monitor/$REPO_SLUG}"
+mkdir -p "$STATE_DIR"
+
+EVENTS_FILE="$STATE_DIR/events.jsonl"
+SEEN_FILE="$STATE_DIR/seen.txt"
+LAST_POLL_FILE="$STATE_DIR/last_poll.txt"
+
+if [[ "$RESET" == true ]]; then
+  rm -f "$SEEN_FILE" "$LAST_POLL_FILE"
+fi
+
+touch "$SEEN_FILE"
+
+if [[ -f "$LAST_POLL_FILE" ]]; then
+  BASELINE=$(cat "$LAST_POLL_FILE")
+else
+  BASELINE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  echo "$BASELINE" > "$LAST_POLL_FILE"
+fi
+
+log() { echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] $1" >&2; }
+seen() { grep -qxF "$1" "$SEEN_FILE" 2>/dev/null; }
+mark_seen() { echo "$1" >> "$SEEN_FILE"; }
+
+emit_event() {
+  echo "$1" >> "$EVENTS_FILE"
+  echo "$1"
+}
+
+log "Monitoring $REPO as $OWNER (interval=${INTERVAL}s, state=$STATE_DIR)"
+
+while true; do
+  SINCE=$(cat "$LAST_POLL_FILE")
+  NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  PR_NUMBERS=$(gh pr list --repo "$REPO" --author "$OWNER" --state open --json number --jq '.[].number' 2>/dev/null || echo "")
+
+  for PR_NUM in $PR_NUMBERS; do
+    gh api "repos/$REPO/issues/$PR_NUM/comments?since=$SINCE&per_page=100" 2>/dev/null \
+      | jq -c ".[] | select(.user.login == \"$OWNER\")" 2>/dev/null \
+      | while IFS= read -r c; do
+          CID=$(echo "$c" | jq -r '.id')
+          seen "comment_$CID" && continue
+          mark_seen "comment_$CID"
+          BODY=$(echo "$c" | jq -r '.body')
+          log "PR #$PR_NUM comment: ${BODY:0:80}"
+          emit_event "$(jq -nc \
+            --arg type pr_comment \
+            --argjson pr "$PR_NUM" \
+            --argjson cid "$CID" \
+            --arg body "$BODY" \
+            --arg created "$(echo "$c" | jq -r '.created_at')" \
+            --arg url "$(echo "$c" | jq -r '.html_url')" \
+            '{type:$type, pr:$pr, comment_id:$cid, body:$body, created_at:$created, url:$url}')"
+        done
+
+    gh api "repos/$REPO/pulls/$PR_NUM/comments?since=$SINCE&per_page=100" 2>/dev/null \
+      | jq -c ".[] | select(.user.login == \"$OWNER\")" 2>/dev/null \
+      | while IFS= read -r c; do
+          CID=$(echo "$c" | jq -r '.id')
+          seen "review_$CID" && continue
+          mark_seen "review_$CID"
+          BODY=$(echo "$c" | jq -r '.body')
+          FILE=$(echo "$c" | jq -r '.path')
+          LINE=$(echo "$c" | jq -r '.line // .original_line // "null"')
+          log "PR #$PR_NUM review ($FILE:$LINE): ${BODY:0:80}"
+          emit_event "$(jq -nc \
+            --arg type pr_review_comment \
+            --argjson pr "$PR_NUM" \
+            --argjson cid "$CID" \
+            --arg body "$BODY" \
+            --arg file "$FILE" \
+            --arg line "$LINE" \
+            --arg diff "$(echo "$c" | jq -r '.diff_hunk')" \
+            --arg created "$(echo "$c" | jq -r '.created_at')" \
+            --arg url "$(echo "$c" | jq -r '.html_url')" \
+            '{type:$type, pr:$pr, comment_id:$cid, body:$body, file:$file, line:$line, diff_hunk:$diff, created_at:$created, url:$url}')"
+        done
+  done
+
+  gh api "repos/$REPO/issues?since=$SINCE&state=open&creator=$OWNER&per_page=50" 2>/dev/null \
+    | jq -c '.[] | select(.pull_request == null)' 2>/dev/null \
+    | while IFS= read -r iss; do
+        INUM=$(echo "$iss" | jq -r '.number')
+        seen "issue_$INUM" && continue
+        mark_seen "issue_$INUM"
+        TITLE=$(echo "$iss" | jq -r '.title')
+        log "New issue #$INUM: $TITLE"
+        emit_event "$(jq -nc \
+          --arg type new_issue \
+          --argjson number "$INUM" \
+          --arg title "$TITLE" \
+          --arg body "$(echo "$iss" | jq -r '.body')" \
+          --arg created "$(echo "$iss" | jq -r '.created_at')" \
+          --arg url "$(echo "$iss" | jq -r '.html_url')" \
+          '{type:$type, number:$number, title:$title, body:$body, created_at:$created, url:$url}')"
+      done
+
+  echo "$NOW" > "$LAST_POLL_FILE"
+  sleep "$INTERVAL"
+done
