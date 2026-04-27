@@ -20,7 +20,7 @@ export interface JiraPollerConfig {
   baseUrl: string;
   email: string;
   apiToken: string;
-  boardId: number;
+  jql: string;
   intervalMs: number;
   stateDir?: string;
   triggerPhrases?: string[];
@@ -29,7 +29,7 @@ export interface JiraPollerConfig {
 export class JiraPoller {
   private baseUrl: string;
   private authHeader: string;
-  private boardId: number;
+  private jql: string;
   private intervalMs: number;
   private triggerPhrases: string[];
   private seen: Set<string>;
@@ -40,7 +40,7 @@ export class JiraPoller {
   constructor(config: JiraPollerConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, "");
     this.authHeader = "Basic " + Buffer.from(`${config.email}:${config.apiToken}`).toString("base64");
-    this.boardId = config.boardId;
+    this.jql = config.jql;
     this.intervalMs = config.intervalMs;
     this.triggerPhrases = (config.triggerPhrases ?? []).map(p => p.toLowerCase());
     this.stateDir = config.stateDir ?? join(homedir(), ".local", "share", "gh-monitor");
@@ -54,7 +54,8 @@ export class JiraPoller {
   }
 
   start(onEvent: (event: MonitorEvent) => void): void {
-    console.log(`[jira] Watching board ${this.boardId} every ${this.intervalMs / 1000}s`);
+    console.log(`[jira] Watching JQL: ${this.jql}`);
+    console.log(`[jira] Polling every ${this.intervalMs / 1000}s`);
     this.poll(onEvent);
     this.timer = setInterval(() => this.poll(onEvent), this.intervalMs);
   }
@@ -68,7 +69,7 @@ export class JiraPoller {
 
   private async poll(onEvent: (event: MonitorEvent) => void): Promise<void> {
     try {
-      const issues = await this.fetchBoardIssues();
+      const issues = await this.fetchIssues();
 
       for (const issue of issues) {
         const issueText = `${issue.fields.summary}\n${issue.fields.description ?? ""}`;
@@ -81,7 +82,7 @@ export class JiraPoller {
 
         onEvent({
           source: "jira",
-          type: "board_issue",
+          type: "epic_issue",
           key: `jira:${issue.key}`,
           body: `${issue.fields.summary}\n\n${issue.fields.description ?? ""}`,
           url: `${this.baseUrl}/browse/${issue.key}`,
@@ -119,8 +120,13 @@ export class JiraPoller {
     }
   }
 
-  private async fetchBoardIssues(): Promise<JiraIssue[]> {
-    const url = `${this.baseUrl}/rest/agile/1.0/board/${this.boardId}/issue?fields=summary,description,status,updated,created,comment&maxResults=50`;
+  private async fetchIssues(): Promise<JiraIssue[]> {
+    const params = new URLSearchParams({
+      jql: this.jql,
+      fields: "summary,description,status,updated,created,comment",
+      maxResults: "50",
+    });
+    const url = `${this.baseUrl}/rest/api/3/search?${params}`;
     const res = await fetch(url, {
       headers: {
         Authorization: this.authHeader,

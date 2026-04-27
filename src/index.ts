@@ -10,7 +10,7 @@ interface JiraConfig {
   baseUrl: string;
   email: string;
   apiToken: string;
-  boardId: number;
+  jql: string;
 }
 
 interface Config {
@@ -19,6 +19,7 @@ interface Config {
   owner?: string;
   intervalMs?: number;
   triggerPhrases?: string[];
+  opencodeUrl?: string;
   jira?: JiraConfig;
   jiraWorkingDir?: string;
 }
@@ -57,12 +58,12 @@ async function main(): Promise<void> {
   const jiraWorkingDir = config.jiraWorkingDir ? expandHome(config.jiraWorkingDir) : undefined;
 
   const dispatcher = new Dispatcher({
+    serverUrl: config.opencodeUrl,
     directoryResolver: (event: MonitorEvent) => {
       if (event.source === "jira") return jiraWorkingDir;
       return event.repo ? repoDirectories[event.repo] : undefined;
     },
   });
-  await dispatcher.start();
 
   const onEvent = async (event: MonitorEvent) => {
     console.log(`[event] ${event.source}/${event.type} ${event.key}: ${event.body.slice(0, 80)}`);
@@ -82,12 +83,18 @@ async function main(): Promise<void> {
   githubPoller.start(onEvent);
 
   if (config.jira) {
-    const jiraPoller = new JiraPoller({
-      ...config.jira,
-      intervalMs,
-      triggerPhrases: config.triggerPhrases,
-    });
-    jiraPoller.start(onEvent);
+    const apiToken = config.jira.apiToken || process.env.JIRA_API_TOKEN;
+    if (!apiToken) {
+      console.warn("[jira] No API token — set jira.apiToken in config or JIRA_API_TOKEN env var");
+    } else {
+      const jiraPoller = new JiraPoller({
+        ...config.jira,
+        apiToken,
+        intervalMs,
+        triggerPhrases: config.triggerPhrases,
+      });
+      jiraPoller.start(onEvent);
+    }
   }
 
   const shutdown = async () => {

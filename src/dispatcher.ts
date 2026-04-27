@@ -1,4 +1,4 @@
-import { createOpencode, type OpencodeClient } from "@opencode-ai/sdk";
+import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk";
 import type { Session } from "@opencode-ai/sdk";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -15,12 +15,12 @@ type SessionMap = Record<string, SessionEntry>;
 
 export interface DispatcherConfig {
   stateDir?: string;
+  serverUrl?: string;
   directoryResolver: (event: MonitorEvent) => string | undefined;
 }
 
 export class Dispatcher {
-  private client: OpencodeClient | null = null;
-  private server: { url: string; close(): void } | null = null;
+  private client: OpencodeClient;
   private sessions: SessionMap;
   private sessionsFile: string;
   private resolveDirectory: (event: MonitorEvent) => string | undefined;
@@ -31,24 +31,20 @@ export class Dispatcher {
     this.sessionsFile = join(stateDir, "sessions.json");
     this.resolveDirectory = config.directoryResolver;
 
+    this.client = createOpencodeClient({
+      baseUrl: config.serverUrl ?? "http://localhost:4096",
+    });
+
     this.sessions = existsSync(this.sessionsFile)
       ? JSON.parse(readFileSync(this.sessionsFile, "utf-8"))
       : {};
+
+    console.log(`[dispatcher] Connecting to OpenCode at ${config.serverUrl ?? "http://localhost:4096"}`);
   }
 
-  async start(): Promise<void> {
-    const opencode = await createOpencode();
-    this.client = opencode.client;
-    this.server = opencode.server;
-    console.log(`[dispatcher] Connected to OpenCode at ${opencode.server.url}`);
-  }
-
-  async stop(): Promise<void> {
-    this.server?.close();
-  }
+  async stop(): Promise<void> {}
 
   async dispatch(event: MonitorEvent): Promise<void> {
-    if (!this.client) throw new Error("Dispatcher not started");
 
     const directory = this.resolveDirectory(event);
     if (!directory) {
