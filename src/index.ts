@@ -14,7 +14,7 @@ interface JiraConfig {
 }
 
 interface Config {
-  repos: string[];
+  org?: string;
   repoDirectories: Record<string, string>;
   owner?: string;
   intervalMs?: number;
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
   };
 
   const githubPoller = new GitHubPoller({
-    repos: config.repos,
+    org: config.org,
     owner: config.owner,
     intervalMs,
     triggerPhrases: config.triggerPhrases,
