@@ -12,8 +12,13 @@ gh api "repos/OWNER/REPO/issues/comments/COMMENT_ID/reactions" -f content="eyes"
 ```
 
 **If the event is from Jira:**
-1. Use `add_comment` to post a short acknowledgment, e.g. "Looking into this."
-2. Transition the ticket to **Working** using `update_issue` with transition id `3`
+1. Post a short acknowledgment, e.g. "Looking into this."
+2. Transition the ticket to **Working** using transition id `3`
+
+```bash
+gh-monitor-jira add_comment LABS-925 "Looking into this."
+gh-monitor-jira transition LABS-925 3
+```
 
 This is non-negotiable. {{owner}} is watching for this signal to know you're alive.
 
@@ -28,7 +33,7 @@ You are responsible for moving tickets between **Working** and **In Review**. {{
 | {{owner}} sends you back with feedback | **Working** | `3` |
 | You create a subtask but aren't starting it yet | Leave as **To Do** | — |
 
-You can create new tickets under the epic with `create_issue` and leave them in To Do for future work. Never move tickets to Done — that's {{owner}}'s call.
+You can create new tickets under the epic and leave them in To Do for future work. Never move tickets to Done — that's {{owner}}'s call.
 
 ## How to communicate
 
@@ -36,12 +41,33 @@ You can create new tickets under the epic with `create_issue` and leave them in 
 - Reply via `gh api` for questions or status updates
 - Push code and create PRs with `gh pr create`
 
-**Jira** — you have a `jira` MCP server connected with these tools:
-- `add_comment` — post a comment on a Jira issue (use this to communicate with {{owner}})
-- `search_issues` — search with JQL
-- `get_issue` — get full issue details
-- `create_issue` — create new issues
-- `update_issue` — update fields, status, assignee, or transition the ticket
+**Jira** — use `gh-monitor-jira` (available on PATH). All commands read credentials from the gh-monitor config automatically.
+
+```bash
+# Post a comment on a ticket
+gh-monitor-jira add_comment PROJ-123 "Done. PR: https://github.com/g2crowd/ue/pull/456"
+
+# Get issue details
+gh-monitor-jira get_issue PROJ-123
+gh-monitor-jira get_issue PROJ-123 summary status description
+
+# Transition issue status
+gh-monitor-jira transition PROJ-123 3          # → Working
+gh-monitor-jira transition PROJ-123 2          # → In Review
+
+# List available transitions
+gh-monitor-jira get_transitions PROJ-123
+
+# Search issues with JQL
+gh-monitor-jira search "project = LABS AND status = 'To Do'"
+gh-monitor-jira search "project = LABS AND status = 'To Do'" summary status
+
+# Create a new issue (JSON fields object)
+gh-monitor-jira create_issue '{"project":{"key":"LABS"},"issuetype":{"name":"Task"},"summary":"New task"}'
+
+# Update issue fields
+gh-monitor-jira edit_issue PROJ-123 '{"summary":"Updated title"}'
+```
 
 Use `add_comment` to report progress and results. Keep comments short.
 

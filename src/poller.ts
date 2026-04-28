@@ -93,7 +93,6 @@ export class GitHubPoller {
       this.pollMyPRs(since, onEvent);
       this.pollCommentedIssues(since, onEvent);
       this.pollCommentedPRs(since, onEvent);
-      this.pollReviewComments(since, onEvent);
     } catch (err) {
       console.error(`[github] Poll error:`, (err as Error).message);
     }
@@ -132,21 +131,23 @@ export class GitHubPoller {
     );
 
     for (const item of results.items ?? []) {
-      const text = `${item.title}\n${item.body ?? ""}`;
-      if (!this.matchesTrigger(text)) continue;
-      if (this.markSeen(`pr_${item.html_url}`)) continue;
-
       const repo = repoFromUrl(item.repository_url);
-      onEvent({
-        source: "github",
-        type: "new_pr",
-        key: `${repo}#pr-${item.number}`,
-        repo,
-        body: `${item.title}\n\n${item.body ?? ""}`,
-        url: item.html_url,
-        createdAt: item.created_at,
-        meta: { pr: item.number },
-      });
+
+      const text = `${item.title}\n${item.body ?? ""}`;
+      if (this.matchesTrigger(text) && !this.markSeen(`pr_${item.html_url}`)) {
+        onEvent({
+          source: "github",
+          type: "new_pr",
+          key: `${repo}#pr-${item.number}`,
+          repo,
+          body: `${item.title}\n\n${item.body ?? ""}`,
+          url: item.html_url,
+          createdAt: item.created_at,
+          meta: { pr: item.number },
+        });
+      }
+
+      this.fetchReviewComments(repo, item.number, onEvent, item.title, item.body);
     }
   }
 
@@ -159,7 +160,7 @@ export class GitHubPoller {
       if (this.markSeen(`commented_issue_${item.html_url}_${item.updated_at}`)) continue;
 
       const repo = repoFromUrl(item.repository_url);
-      this.fetchNewComments(repo, item.number, "issue", onEvent);
+      this.fetchNewComments(repo, item.number, "issue", onEvent, item.title, item.body);
     }
   }
 
@@ -172,11 +173,11 @@ export class GitHubPoller {
       if (this.markSeen(`commented_pr_${item.html_url}_${item.updated_at}`)) continue;
 
       const repo = repoFromUrl(item.repository_url);
-      this.fetchNewComments(repo, item.number, "pr", onEvent);
+      this.fetchNewComments(repo, item.number, "pr", onEvent, item.title, item.body);
     }
   }
 
-  private fetchNewComments(repo: string, number: number, kind: "issue" | "pr", onEvent: (e: MonitorEvent) => void): void {
+  private fetchNewComments(repo: string, number: number, kind: "issue" | "pr", onEvent: (e: MonitorEvent) => void, parentTitle?: string, parentBody?: string): void {
     try {
       const comments = ghJson<Array<{
         id: number; body: string; created_at: string; html_url: string;
@@ -196,7 +197,7 @@ export class GitHubPoller {
           body: c.body,
           url: c.html_url,
           createdAt: c.created_at,
-          meta: { [kind]: number, commentId: c.id },
+          meta: { [kind]: number, commentId: c.id, parentTitle, parentBody },
         });
       }
     } catch (err) {
@@ -204,39 +205,32 @@ export class GitHubPoller {
     }
   }
 
-  private pollReviewComments(since: string, onEvent: (e: MonitorEvent) => void): void {
-    const results = ghJson<{ items: SearchResult[] }>(
-      `api "search/issues?q=author:${this.owner}+org:${this.org}+is:pr+is:open+updated:>${since}&sort=updated&per_page=50"`
-    );
+  private fetchReviewComments(repo: string, prNumber: number, onEvent: (e: MonitorEvent) => void, parentTitle?: string, parentBody?: string): void {
+    try {
+      const comments = ghJson<Array<{
+        id: number; body: string; path: string; line: number | null;
+        diff_hunk: string; created_at: string; html_url: string;
+        user: { login: string };
+      }>>(`api "repos/${repo}/pulls/${prNumber}/comments?per_page=100"`);
 
-    for (const item of results.items ?? []) {
-      const repo = repoFromUrl(item.repository_url);
-      try {
-        const comments = ghJson<Array<{
-          id: number; body: string; path: string; line: number | null;
-          diff_hunk: string; created_at: string; html_url: string;
-          user: { login: string };
-        }>>(`api "repos/${repo}/pulls/${item.number}/comments?per_page=100"`);
+      for (const c of comments) {
+        if (c.user.login !== this.owner) continue;
+        if (!this.matchesTrigger(c.body)) continue;
+        if (this.markSeen(`review_${c.id}`)) continue;
 
-        for (const c of comments) {
-          if (c.user.login !== this.owner) continue;
-          if (!this.matchesTrigger(c.body)) continue;
-          if (this.markSeen(`review_${c.id}`)) continue;
-
-          onEvent({
-            source: "github",
-            type: "pr_review_comment",
-            key: `${repo}#pr-${item.number}`,
-            repo,
-            body: c.body,
-            url: c.html_url,
-            createdAt: c.created_at,
-            meta: { pr: item.number, commentId: c.id, file: c.path, line: c.line, diffHunk: c.diff_hunk },
-          });
-        }
-      } catch (err) {
-        console.error(`[github] Error fetching review comments for ${repo}#${item.number}:`, (err as Error).message);
+        onEvent({
+          source: "github",
+          type: "pr_review_comment",
+          key: `${repo}#pr-${prNumber}`,
+          repo,
+          body: c.body,
+          url: c.html_url,
+          createdAt: c.created_at,
+          meta: { pr: prNumber, commentId: c.id, file: c.path, line: c.line, diffHunk: c.diff_hunk, parentTitle, parentBody },
+        });
       }
+    } catch (err) {
+      console.error(`[github] Error fetching review comments for ${repo}#${prNumber}:`, (err as Error).message);
     }
   }
 
