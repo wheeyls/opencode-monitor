@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "bin": {
-    "gh-monitor-jira": "dist/jira-cli.js"
+    "gh-monitor-jira": "dist/jira-cli.js",
+    "gh-monitor-status": "dist/status-cli.js"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "jira": "tsx src/jira-cli.ts"
+    "jira": "tsx src/jira-cli.ts",
+    "status": "tsx src/status-cli.ts"
   },
   "dependencies": {
     "@opencode-ai/sdk": "^1.14.28",
