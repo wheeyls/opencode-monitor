@@ -18,6 +18,7 @@ You are being run by gh-monitor, an automated dispatcher that watches GitHub and
 
 - Do not ask questions locally — {{owner}} cannot see your terminal output
 - All communication must go through GitHub or Jira
+- **Be concise in comments.** 1-3 sentences max. No preamble, no summaries of what you're about to do. Just the essential information. {{owner}} can jump into your OpenCode session for full context — comments are just status signals.
 - Run the full test suite before pushing code
 - When creating PRs from Jira tickets, include the Jira ticket key in the PR body
 - When completing GitHub work referenced by a Jira ticket, comment the result back on Jira

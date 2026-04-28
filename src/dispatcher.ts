@@ -53,6 +53,43 @@ export class Dispatcher {
 
   async stop(): Promise<void> {}
 
+  async getStatus(): Promise<Array<{ key: string; sessionId: string; source: string; status: string; detail?: string }>> {
+    const results: Array<{ key: string; sessionId: string; source: string; status: string; detail?: string }> = [];
+    const sessionIds = Object.values(this.sessions).map(e => e.sessionId);
+
+    if (sessionIds.length === 0) return results;
+
+    let statuses: Record<string, { type: string; message?: string; attempt?: number }> = {};
+    try {
+      const res = await this.client.session.status({});
+      statuses = (res.data ?? {}) as Record<string, { type: string; message?: string; attempt?: number }>;
+    } catch {
+      return Object.entries(this.sessions).map(([key, entry]) => ({
+        key,
+        sessionId: entry.sessionId,
+        source: entry.source,
+        status: "unknown",
+      }));
+    }
+
+    for (const [key, entry] of Object.entries(this.sessions)) {
+      const s = statuses[entry.sessionId];
+      if (!s) {
+        results.push({ key, sessionId: entry.sessionId, source: entry.source, status: "not found" });
+      } else if (s.type === "retry") {
+        results.push({ key, sessionId: entry.sessionId, source: entry.source, status: "retry", detail: `attempt ${s.attempt}: ${s.message}` });
+      } else {
+        results.push({ key, sessionId: entry.sessionId, source: entry.source, status: s.type });
+      }
+    }
+
+    return results;
+  }
+
+  get trackedSessionCount(): number {
+    return Object.keys(this.sessions).length;
+  }
+
   async dispatch(event: MonitorEvent): Promise<void> {
     const directory = this.resolveDirectory(event);
     if (!directory) {

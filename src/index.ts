@@ -67,7 +67,20 @@ async function main(): Promise<void> {
     },
   });
 
+  let countdown = Math.floor(intervalMs / 1000);
+  const resetCountdown = () => { countdown = Math.floor(intervalMs / 1000); };
+
+  let lastStatusLines = 0;
+
+  function clearStatus() {
+    if (lastStatusLines > 0) {
+      process.stdout.write("\x1b[2K\x1b[1A".repeat(lastStatusLines) + "\x1b[2K\r");
+      lastStatusLines = 0;
+    }
+  }
+
   const onEvent = async (event: MonitorEvent) => {
+    clearStatus();
     console.log(`[event] ${event.source}/${event.type} ${event.key}: ${event.body.slice(0, 80)}`);
     try {
       await dispatcher.dispatch(event);
@@ -99,7 +112,54 @@ async function main(): Promise<void> {
     }
   }
 
+  const STATUS_ICONS: Record<string, string> = {
+    idle: "✅",
+    busy: "⏳",
+    retry: "🔄",
+    "not found": "💀",
+    unknown: "❓",
+  };
+
+  async function renderStatus() {
+    const statuses = await dispatcher.getStatus();
+
+    if (statuses.length === 0) {
+      process.stdout.write(`\r[poll] next in ${countdown}s • no sessions   `);
+      return;
+    }
+
+    const clearLines = "\x1b[2K\x1b[1A".repeat(lastStatusLines) + "\x1b[2K\r";
+    if (lastStatusLines > 0) process.stdout.write(clearLines);
+
+    const lines: string[] = [];
+    lines.push(`[poll] next in ${countdown}s • ${statuses.length} session(s)`);
+
+    for (const s of statuses) {
+      const icon = STATUS_ICONS[s.status] ?? "❓";
+      const detail = s.detail ? ` (${s.detail})` : "";
+      lines.push(`  ${icon} ${s.key} [${s.status}]${detail}`);
+    }
+
+    process.stdout.write(lines.join("\n") + "\n");
+    lastStatusLines = lines.length;
+  }
+
+  const tick = setInterval(async () => {
+    countdown--;
+    if (countdown < 0) resetCountdown();
+
+    if (countdown % 5 === 0 || dispatcher.trackedSessionCount === 0) {
+      await renderStatus().catch(() => {});
+    } else {
+      const clearLines = "\x1b[2K\x1b[1A".repeat(lastStatusLines) + "\x1b[2K\r";
+      if (lastStatusLines > 0) process.stdout.write(clearLines);
+      process.stdout.write(`[poll] next in ${countdown}s • ${dispatcher.trackedSessionCount} session(s)\n`);
+      lastStatusLines = 1;
+    }
+  }, 1000);
+
   const shutdown = async () => {
+    clearInterval(tick);
     console.log("\nShutting down...");
     githubPoller.stop();
     await dispatcher.stop();

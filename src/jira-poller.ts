@@ -90,25 +90,23 @@ export class JiraPoller {
       for (const issue of issues) {
         const descriptionText = extractText(issue.fields.description);
         const issueText = `${issue.fields.summary}\n${descriptionText}`;
-        if (!this.matchesTrigger(issueText)) {
-          this.checkCommentsForTrigger(issue, onEvent);
-          continue;
+
+        if (this.matchesTrigger(issueText) && !this.markSeen(`issue_${issue.key}`)) {
+          onEvent({
+            source: "jira",
+            type: "epic_issue",
+            key: `jira:${issue.key}`,
+            body: `${issue.fields.summary}\n\n${descriptionText}`,
+            url: `${this.baseUrl}/browse/${issue.key}`,
+            createdAt: issue.fields.created,
+            meta: {
+              issueKey: issue.key,
+              status: issue.fields.status.name,
+            },
+          });
         }
 
-        if (this.markSeen(`issue_${issue.key}`)) continue;
-
-        onEvent({
-          source: "jira",
-          type: "epic_issue",
-          key: `jira:${issue.key}`,
-          body: `${issue.fields.summary}\n\n${descriptionText}`,
-          url: `${this.baseUrl}/browse/${issue.key}`,
-          createdAt: issue.fields.created,
-          meta: {
-            issueKey: issue.key,
-            status: issue.fields.status.name,
-          },
-        });
+        this.checkCommentsForTrigger(issue, onEvent);
       }
     } catch (err) {
       console.error(`[jira] Poll error:`, (err as Error).message);
