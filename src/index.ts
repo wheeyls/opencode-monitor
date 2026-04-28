@@ -120,24 +120,24 @@ async function main(): Promise<void> {
     unknown: "❓",
   };
 
-  async function renderStatus() {
-    const statuses = await dispatcher.getStatus();
+  type CachedStatus = Awaited<ReturnType<typeof dispatcher.getStatus>>;
+  let cachedStatuses: CachedStatus = [];
 
-    if (statuses.length === 0) {
-      process.stdout.write(`\r[poll] next in ${countdown}s • no sessions   `);
-      return;
-    }
-
-    const clearLines = "\x1b[2K\x1b[1A".repeat(lastStatusLines) + "\x1b[2K\r";
-    if (lastStatusLines > 0) process.stdout.write(clearLines);
+  function render() {
+    const clear = "\x1b[2K\x1b[1A".repeat(lastStatusLines) + "\x1b[2K\r";
+    if (lastStatusLines > 0) process.stdout.write(clear);
 
     const lines: string[] = [];
-    lines.push(`[poll] next in ${countdown}s • ${statuses.length} session(s)`);
 
-    for (const s of statuses) {
-      const icon = STATUS_ICONS[s.status] ?? "❓";
-      const detail = s.detail ? ` (${s.detail})` : "";
-      lines.push(`  ${icon} ${s.key} [${s.status}]${detail}`);
+    if (cachedStatuses.length === 0) {
+      lines.push(`[poll] next in ${countdown}s • no sessions`);
+    } else {
+      lines.push(`[poll] next in ${countdown}s • ${cachedStatuses.length} session(s)`);
+      for (const s of cachedStatuses) {
+        const icon = STATUS_ICONS[s.status] ?? "❓";
+        const detail = s.detail ? ` (${s.detail})` : "";
+        lines.push(`  ${icon} ${s.key} [${s.status}]${detail}`);
+      }
     }
 
     process.stdout.write(lines.join("\n") + "\n");
@@ -147,15 +147,10 @@ async function main(): Promise<void> {
   const tick = setInterval(async () => {
     countdown--;
     if (countdown < 0) resetCountdown();
-
-    if (countdown % 5 === 0 || dispatcher.trackedSessionCount === 0) {
-      await renderStatus().catch(() => {});
-    } else {
-      const clearLines = "\x1b[2K\x1b[1A".repeat(lastStatusLines) + "\x1b[2K\r";
-      if (lastStatusLines > 0) process.stdout.write(clearLines);
-      process.stdout.write(`[poll] next in ${countdown}s • ${dispatcher.trackedSessionCount} session(s)\n`);
-      lastStatusLines = 1;
+    if (countdown % 5 === 0) {
+      cachedStatuses = await dispatcher.getStatus().catch(() => cachedStatuses);
     }
+    render();
   }, 1000);
 
   const shutdown = async () => {

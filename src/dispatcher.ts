@@ -49,31 +49,59 @@ export class Dispatcher {
       : {};
 
     console.log(`[dispatcher] Connecting to OpenCode at ${config.serverUrl ?? "http://localhost:4096"}`);
+    this.startPermissionAutoApprover();
   }
 
   async stop(): Promise<void> {}
 
+  private startPermissionAutoApprover(): void {
+    const trackedSessionIds = () => new Set(Object.values(this.sessions).map(e => e.sessionId));
+
+    (async () => {
+      try {
+        const result = await this.client.event.subscribe({});
+        for await (const event of result.stream) {
+          const data = event as { type?: string; properties?: Record<string, unknown> };
+          if (data.type !== "permission.updated") continue;
+
+          const props = data.properties as { id: string; sessionID: string; title: string };
+          if (!trackedSessionIds().has(props.sessionID)) continue;
+
+          console.log(`[dispatcher] Auto-approving permission: ${props.title}`);
+          try {
+            await this.client.postSessionIdPermissionsPermissionId({
+              path: { id: props.sessionID, permissionID: props.id },
+              body: { response: "always" },
+            });
+          } catch (err) {
+            console.error(`[dispatcher] Failed to approve permission:`, (err as Error).message);
+          }
+        }
+      } catch (err) {
+        console.error(`[dispatcher] Event stream error:`, (err as Error).message);
+        setTimeout(() => this.startPermissionAutoApprover(), 5000);
+      }
+    })();
+  }
+
   async getStatus(): Promise<Array<{ key: string; sessionId: string; source: string; status: string; detail?: string }>> {
     const results: Array<{ key: string; sessionId: string; source: string; status: string; detail?: string }> = [];
-    const sessionIds = Object.values(this.sessions).map(e => e.sessionId);
 
-    if (sessionIds.length === 0) return results;
+    if (Object.keys(this.sessions).length === 0) return results;
 
-    let statuses: Record<string, { type: string; message?: string; attempt?: number }> = {};
-    try {
-      const res = await this.client.session.status({});
-      statuses = (res.data ?? {}) as Record<string, { type: string; message?: string; attempt?: number }>;
-    } catch {
-      return Object.entries(this.sessions).map(([key, entry]) => ({
-        key,
-        sessionId: entry.sessionId,
-        source: entry.source,
-        status: "unknown",
-      }));
+    const directories = [...new Set(Object.values(this.sessions).map(e => e.directory))];
+    const allStatuses: Record<string, { type: string; message?: string; attempt?: number }> = {};
+
+    for (const dir of directories) {
+      try {
+        const res = await this.client.session.status({ query: { directory: dir } });
+        const data = (res.data ?? {}) as Record<string, { type: string; message?: string; attempt?: number }>;
+        Object.assign(allStatuses, data);
+      } catch {}
     }
 
     for (const [key, entry] of Object.entries(this.sessions)) {
-      const s = statuses[entry.sessionId];
+      const s = allStatuses[entry.sessionId];
       if (!s) {
         results.push({ key, sessionId: entry.sessionId, source: entry.source, status: "not found" });
       } else if (s.type === "retry") {
