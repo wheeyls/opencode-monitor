@@ -61,7 +61,7 @@
   "triggerPhrases": ["@ai", "@agent"],
   "jira": {
     "baseUrl": "https://g2crowd.atlassian.net",
-    "email": "mwheeler@g2.com",
+    "email": "mike@g2.com",
     "jql": "\"Epic Link\" = LABS-918 AND status != Done ORDER BY updated DESC"
   },
   "jiraWorkingDir": "~/code/ue"

@@ -3,16 +3,32 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import type { MonitorEvent } from "./events.js";
 
+interface AdfNode {
+  type: string;
+  text?: string;
+  content?: AdfNode[];
+}
+
+function extractText(node: AdfNode | string | null): string {
+  if (!node) return "";
+  if (typeof node === "string") return node;
+  let text = node.text ?? "";
+  if (node.content) {
+    text += node.content.map(extractText).join("");
+  }
+  return text;
+}
+
 interface JiraIssue {
   id: string;
   key: string;
   fields: {
     summary: string;
-    description: string | null;
+    description: AdfNode | string | null;
     status: { name: string };
     updated: string;
     created: string;
-    comment?: { comments: Array<{ id: string; body: string; author: { emailAddress: string }; updated: string }> };
+    comment?: { comments: Array<{ id: string; body: AdfNode | string; author: { emailAddress: string }; updated: string }> };
   };
 }
 
@@ -72,7 +88,8 @@ export class JiraPoller {
       const issues = await this.fetchIssues();
 
       for (const issue of issues) {
-        const issueText = `${issue.fields.summary}\n${issue.fields.description ?? ""}`;
+        const descriptionText = extractText(issue.fields.description);
+        const issueText = `${issue.fields.summary}\n${descriptionText}`;
         if (!this.matchesTrigger(issueText)) {
           this.checkCommentsForTrigger(issue, onEvent);
           continue;
@@ -84,7 +101,7 @@ export class JiraPoller {
           source: "jira",
           type: "epic_issue",
           key: `jira:${issue.key}`,
-          body: `${issue.fields.summary}\n\n${issue.fields.description ?? ""}`,
+          body: `${issue.fields.summary}\n\n${descriptionText}`,
           url: `${this.baseUrl}/browse/${issue.key}`,
           createdAt: issue.fields.created,
           meta: {
@@ -101,14 +118,15 @@ export class JiraPoller {
   private checkCommentsForTrigger(issue: JiraIssue, onEvent: (event: MonitorEvent) => void): void {
     const comments = issue.fields.comment?.comments ?? [];
     for (const comment of comments) {
-      if (!this.matchesTrigger(comment.body)) continue;
+      const commentText = extractText(comment.body);
+      if (!this.matchesTrigger(commentText)) continue;
       if (this.markSeen(`comment_${issue.key}_${comment.id}`)) continue;
 
       onEvent({
         source: "jira",
         type: "issue_comment",
         key: `jira:${issue.key}`,
-        body: comment.body,
+        body: commentText,
         url: `${this.baseUrl}/browse/${issue.key}?focusedCommentId=${comment.id}`,
         createdAt: comment.updated,
         meta: {
@@ -126,7 +144,7 @@ export class JiraPoller {
       fields: "summary,description,status,updated,created,comment",
       maxResults: "50",
     });
-    const url = `${this.baseUrl}/rest/api/3/search?${params}`;
+    const url = `${this.baseUrl}/rest/api/3/search/jql?${params}`;
     const res = await fetch(url, {
       headers: {
         Authorization: this.authHeader,

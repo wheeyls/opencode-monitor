@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -59,6 +60,7 @@ async function main(): Promise<void> {
 
   const dispatcher = new Dispatcher({
     serverUrl: config.opencodeUrl,
+    owner: config.owner,
     directoryResolver: (event: MonitorEvent) => {
       if (event.source === "jira") return jiraWorkingDir;
       return event.repo ? repoDirectories[event.repo] : undefined;
