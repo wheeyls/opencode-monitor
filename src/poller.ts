@@ -147,7 +147,7 @@ export class GitHubPoller {
         });
       }
 
-      this.fetchReviewComments(repo, item.number, onEvent);
+      this.fetchReviewComments(repo, item.number, onEvent, item.title, item.body);
     }
   }
 
@@ -160,7 +160,7 @@ export class GitHubPoller {
       if (this.markSeen(`commented_issue_${item.html_url}_${item.updated_at}`)) continue;
 
       const repo = repoFromUrl(item.repository_url);
-      this.fetchNewComments(repo, item.number, "issue", onEvent);
+      this.fetchNewComments(repo, item.number, "issue", onEvent, item.title, item.body);
     }
   }
 
@@ -173,11 +173,11 @@ export class GitHubPoller {
       if (this.markSeen(`commented_pr_${item.html_url}_${item.updated_at}`)) continue;
 
       const repo = repoFromUrl(item.repository_url);
-      this.fetchNewComments(repo, item.number, "pr", onEvent);
+      this.fetchNewComments(repo, item.number, "pr", onEvent, item.title, item.body);
     }
   }
 
-  private fetchNewComments(repo: string, number: number, kind: "issue" | "pr", onEvent: (e: MonitorEvent) => void): void {
+  private fetchNewComments(repo: string, number: number, kind: "issue" | "pr", onEvent: (e: MonitorEvent) => void, parentTitle?: string, parentBody?: string): void {
     try {
       const comments = ghJson<Array<{
         id: number; body: string; created_at: string; html_url: string;
@@ -197,7 +197,7 @@ export class GitHubPoller {
           body: c.body,
           url: c.html_url,
           createdAt: c.created_at,
-          meta: { [kind]: number, commentId: c.id },
+          meta: { [kind]: number, commentId: c.id, parentTitle, parentBody },
         });
       }
     } catch (err) {
@@ -205,7 +205,7 @@ export class GitHubPoller {
     }
   }
 
-  private fetchReviewComments(repo: string, prNumber: number, onEvent: (e: MonitorEvent) => void): void {
+  private fetchReviewComments(repo: string, prNumber: number, onEvent: (e: MonitorEvent) => void, parentTitle?: string, parentBody?: string): void {
     try {
       const comments = ghJson<Array<{
         id: number; body: string; path: string; line: number | null;
@@ -226,7 +226,7 @@ export class GitHubPoller {
           body: c.body,
           url: c.html_url,
           createdAt: c.created_at,
-          meta: { pr: prNumber, commentId: c.id, file: c.path, line: c.line, diffHunk: c.diff_hunk },
+          meta: { pr: prNumber, commentId: c.id, file: c.path, line: c.line, diffHunk: c.diff_hunk, parentTitle, parentBody },
         });
       }
     } catch (err) {

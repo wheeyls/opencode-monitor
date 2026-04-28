@@ -125,7 +125,7 @@ export class Dispatcher {
       return;
     }
 
-    const entry = this.sessions[event.key];
+    const entry = this.sessions[event.key] ?? this.resolveLinkedSession(event);
     let sessionId: string;
     let isNew = false;
 
@@ -163,6 +163,26 @@ export class Dispatcher {
         parts: [{ type: "text", text: prompt }],
       },
     });
+  }
+
+  private resolveLinkedSession(event: MonitorEvent): SessionEntry | undefined {
+    if (event.source !== "github") return undefined;
+
+    const searchText = [
+      event.body,
+      event.meta?.parentTitle as string ?? "",
+      event.meta?.parentBody as string ?? "",
+    ].join("\n");
+
+    const match = searchText.match(/\[([A-Z][A-Z0-9]+-\d+)\]/);
+    if (!match) return undefined;
+
+    const jiraKey = `jira:${match[1]}`;
+    const entry = this.sessions[jiraKey];
+    if (entry) {
+      console.log(`[dispatcher] Linked ${event.key} → ${jiraKey} (found ${match[1]} in PR)`);
+    }
+    return entry;
   }
 
   private buildInitialPrompt(event: MonitorEvent): string {
