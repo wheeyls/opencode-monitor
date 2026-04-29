@@ -27,8 +27,8 @@ interface Config {
 
 function loadConfig(): Config {
   const paths = [
-    join(process.cwd(), "gh-monitor.json"),
-    join(homedir(), ".config", "gh-monitor", "config.json"),
+    join(process.cwd(), "arb.json"),
+    join(homedir(), ".config", "arb", "config.json"),
   ];
 
   for (const p of paths) {
@@ -39,7 +39,7 @@ function loadConfig(): Config {
   }
 
   throw new Error(
-    `No config found. Create gh-monitor.json or ~/.config/gh-monitor/config.json`
+    `No config found. Create arb.json or ~/.config/arb/config.json`
   );
 }
 

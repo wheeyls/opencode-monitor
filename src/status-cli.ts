@@ -18,10 +18,10 @@ interface Config {
 
 function loadConfig(): Config {
   const paths = [
-    join(process.cwd(), "gh-monitor.json"),
-    join(homedir(), ".config", "gh-monitor", "config.json"),
-    join(homedir(), ".local", "share", "gh-monitor", "gh-monitor.json"),
-    join(homedir(), ".local", "share", "devenv", "gh-monitor", "gh-monitor.json"),
+    join(process.cwd(), "arb.json"),
+    join(homedir(), ".config", "arb", "config.json"),
+    join(homedir(), ".local", "share", "arb", "arb.json"),
+    join(homedir(), ".local", "share", "devenv", "arb", "arb.json"),
   ];
 
   for (const p of paths) {
@@ -32,8 +32,8 @@ function loadConfig(): Config {
 
 function loadSessions(): SessionMap {
   const paths = [
-    join(homedir(), ".local", "share", "gh-monitor", "sessions.json"),
-    join(homedir(), ".local", "share", "devenv", "gh-monitor", "sessions.json"),
+    join(homedir(), ".local", "share", "arb", "sessions.json"),
+    join(homedir(), ".local", "share", "devenv", "arb", "sessions.json"),
   ];
 
   for (const p of paths) {

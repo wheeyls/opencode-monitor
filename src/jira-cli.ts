@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { JiraClient } from "./jira-client.js";
 
-const USAGE = `Usage: gh-monitor-jira <command> [args]
+const USAGE = `Usage: arb-jira <command> [args]
 
 Commands:
   add_comment <issue-key> <body>       Add a comment to an issue
@@ -13,13 +13,13 @@ Commands:
   search <jql> [fields...]             Search issues with JQL
 
 Examples:
-  gh-monitor-jira add_comment PROJ-123 "Looking into this."
-  gh-monitor-jira transition PROJ-123 3
-  gh-monitor-jira get_issue PROJ-123
-  gh-monitor-jira get_issue PROJ-123 summary status
-  gh-monitor-jira search "project = PROJ AND status = Open"
-  gh-monitor-jira create_issue '{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"New task"}'
-  gh-monitor-jira edit_issue PROJ-123 '{"summary":"Updated title"}'`;
+  arb-jira add_comment PROJ-123 "Looking into this."
+  arb-jira transition PROJ-123 3
+  arb-jira get_issue PROJ-123
+  arb-jira get_issue PROJ-123 summary status
+  arb-jira search "project = PROJ AND status = Open"
+  arb-jira create_issue '{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"New task"}'
+  arb-jira edit_issue PROJ-123 '{"summary":"Updated title"}'`;
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);

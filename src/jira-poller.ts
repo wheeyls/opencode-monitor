@@ -59,7 +59,7 @@ export class JiraPoller {
     this.jql = config.jql;
     this.intervalMs = config.intervalMs;
     this.triggerPhrases = (config.triggerPhrases ?? []).map(p => p.toLowerCase());
-    this.stateDir = config.stateDir ?? join(homedir(), ".local", "share", "gh-monitor");
+    this.stateDir = config.stateDir ?? join(homedir(), ".local", "share", "arb");
     this.seenFile = join(this.stateDir, "jira_seen.txt");
 
     mkdirSync(this.stateDir, { recursive: true });

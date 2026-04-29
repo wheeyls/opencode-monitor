@@ -33,7 +33,7 @@ export class Dispatcher {
   private systemPromptLoaded = false;
 
   constructor(config: DispatcherConfig) {
-    const stateDir = config.stateDir ?? join(homedir(), ".local", "share", "gh-monitor");
+    const stateDir = config.stateDir ?? join(homedir(), ".local", "share", "arb");
     mkdirSync(stateDir, { recursive: true });
     this.sessionsFile = join(stateDir, "sessions.json");
     this.promptDir = config.promptDir ?? join(process.cwd(), "prompts");

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: gh-monitor <repo> [--owner <login>] [--interval <seconds>]
+Usage: arb <repo> [--owner <login>] [--interval <seconds>]
 
 Poll a GitHub repo for new PR comments, review comments, and issues.
 Events are written as JSONL to \$STATE_DIR/events.jsonl.
@@ -14,7 +14,7 @@ Arguments:
 Options:
   --owner     GitHub login to watch (default: current gh user)
   --interval  Seconds between polls (default: 60)
-  --state-dir Override state directory (default: ~/.local/share/gh-monitor/<repo-slug>)
+  --state-dir Override state directory (default: ~/.local/share/arb/<repo-slug>)
   --reset     Clear seen-event state and start fresh
   -h, --help  Show this help
 EOF
@@ -49,7 +49,7 @@ if [[ -z "$OWNER" ]]; then
 fi
 
 REPO_SLUG="${REPO//\//_}"
-STATE_DIR="${STATE_DIR:-$HOME/.local/share/gh-monitor/$REPO_SLUG}"
+STATE_DIR="${STATE_DIR:-$HOME/.local/share/arb/$REPO_SLUG}"
 mkdir -p "$STATE_DIR"
 
 EVENTS_FILE="$STATE_DIR/events.jsonl"

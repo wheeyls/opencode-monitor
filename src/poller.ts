@@ -54,7 +54,7 @@ export class GitHubPoller {
     this.org = config.org ?? "g2crowd";
     this.intervalMs = config.intervalMs;
     this.triggerPhrases = (config.triggerPhrases ?? []).map(p => p.toLowerCase());
-    this.stateDir = config.stateDir ?? join(homedir(), ".local", "share", "gh-monitor");
+    this.stateDir = config.stateDir ?? join(homedir(), ".local", "share", "arb");
     this.seenFile = join(this.stateDir, "seen.txt");
     this.lastPollFile = join(this.stateDir, "last_poll.txt");
 

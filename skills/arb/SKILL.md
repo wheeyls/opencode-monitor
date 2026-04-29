@@ -1,9 +1,9 @@
 ---
-name: gh-monitor
-description: Use when receiving dispatches from gh-monitor (automated GitHub/Jira watcher). Triggers on "[jira]", "[github]", "gh-monitor", "dispatch", or when the system prompt mentions "gh-monitor". Governs all communication protocols for remote work — Jira reactions, GitHub comments, PR workflows, and post-deploy verification. ALWAYS load this skill when the user is communicating via Jira or GitHub rather than locally.
+name: arb
+description: Use when receiving dispatches from arb (automated GitHub/Jira watcher). Triggers on "[jira]", "[github]", "arb", "dispatch", or when the system prompt mentions "arb". Governs all communication protocols for remote work — Jira reactions, GitHub comments, PR workflows, and post-deploy verification. ALWAYS load this skill when the user is communicating via Jira or GitHub rather than locally.
 ---
 
-# gh-monitor — Remote Work Communication Protocol
+# arb — Remote Work Communication Protocol
 
 The user is **not present locally**. They communicate through GitHub comments, Jira tickets, and PR reviews. All feedback must go through those channels — terminal output is invisible to them.
 
@@ -20,40 +20,40 @@ gh api repos/{owner}/{repo}/issues/comments/{comment_id}/reactions -f content="e
 ### Jira Tickets
 
 ```bash
-gh-monitor-jira add_comment LABS-123 "👀 On it."
-gh-monitor-jira transition LABS-123 3
+arb-jira add_comment LABS-123 "👀 On it."
+arb-jira transition LABS-123 3
 ```
 
 Transition ID `3` = **Working**. Always move the ticket to Working when you start.
 
 **Rule**: The user must see acknowledgment within your FIRST tool call. No research, no analysis, no planning first — react immediately, then work.
 
-## 2. Jira CLI (`gh-monitor-jira`)
+## 2. Jira CLI (`arb-jira`)
 
-Do NOT use any Jira MCP tools. Use the `gh-monitor-jira` CLI for all Jira operations:
+Do NOT use any Jira MCP tools. Use the `arb-jira` CLI for all Jira operations:
 
 ```bash
 # Comment on a ticket
-gh-monitor-jira add_comment LABS-123 "Your message here"
+arb-jira add_comment LABS-123 "Your message here"
 
 # Get issue details
-gh-monitor-jira get_issue LABS-123
-gh-monitor-jira get_issue LABS-123 summary status description
+arb-jira get_issue LABS-123
+arb-jira get_issue LABS-123 summary status description
 
 # Search with JQL
-gh-monitor-jira search "project = LABS AND status = 'To Do'"
+arb-jira search "project = LABS AND status = 'To Do'"
 
 # Transition a ticket (see transition IDs below)
-gh-monitor-jira transition LABS-123 3
+arb-jira transition LABS-123 3
 
 # List available transitions
-gh-monitor-jira get_transitions LABS-123
+arb-jira get_transitions LABS-123
 
 # Update issue fields
-gh-monitor-jira edit_issue LABS-123 '{"summary":"Updated title"}'
+arb-jira edit_issue LABS-123 '{"summary":"Updated title"}'
 
 # Create a new issue
-gh-monitor-jira create_issue '{"project":{"key":"LABS"},"issuetype":{"name":"Task"},"summary":"New task","parent":{"key":"LABS-918"}}'
+arb-jira create_issue '{"project":{"key":"LABS"},"issuetype":{"name":"Task"},"summary":"New task","parent":{"key":"LABS-918"}}'
 ```
 
 ### Transition IDs (LABS project)
@@ -94,7 +94,7 @@ gh pr view {number} --repo {owner}/{repo} --json state --jq '.state'
 
 ## 4. Dispatch Message Format
 
-gh-monitor sends messages with these prefixes:
+arb sends messages with these prefixes:
 
 ```
 [jira] epic_issue: jira:LABS-123       — New ticket. Read description, acknowledge, plan work.
@@ -112,20 +112,20 @@ gh-monitor sends messages with these prefixes:
 - **Never work silently.** If you've been working for more than a few minutes, post a progress update.
 - **Include the Jira ticket key** in PR bodies and commit messages: `[LABS-123]`
 
-## 6. Status CLI (`gh-monitor-status`)
+## 6. Status CLI (`arb-status`)
 
 Check the health of all dispatched sessions:
 
 ```bash
-gh-monitor-status         # Human-readable output
-gh-monitor-status --json  # JSON output
+arb-status         # Human-readable output
+arb-status --json  # JSON output
 ```
 
 ## 7. Error Recovery
 
 ### Jira CLI Fails
 
-If `gh-monitor-jira` errors, fall back to posting on the GitHub PR via `gh api`. Never silently fail to communicate.
+If `arb-jira` errors, fall back to posting on the GitHub PR via `gh api`. Never silently fail to communicate.
 
 ### PR Already Merged
 

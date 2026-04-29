@@ -1,11 +1,11 @@
 {
-  "name": "gh-monitor",
+  "name": "arb",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "gh-monitor-jira": "dist/jira-cli.js",
-    "gh-monitor-status": "dist/status-cli.js"
+    "arb-jira": "dist/jira-cli.js",
+    "arb-status": "dist/status-cli.js"
   },
   "scripts": {
     "build": "tsc",

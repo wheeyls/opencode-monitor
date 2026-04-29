@@ -10,10 +10,10 @@ interface JiraConfig {
 
 function loadJiraConfig(): JiraConfig {
   const paths = [
-    join(process.cwd(), "gh-monitor.json"),
-    join(homedir(), ".config", "gh-monitor", "config.json"),
-    join(homedir(), ".local", "share", "gh-monitor", "gh-monitor.json"),
-    join(homedir(), ".local", "share", "devenv", "gh-monitor", "gh-monitor.json"),
+    join(process.cwd(), "arb.json"),
+    join(homedir(), ".config", "arb", "config.json"),
+    join(homedir(), ".local", "share", "arb", "arb.json"),
+    join(homedir(), ".local", "share", "devenv", "arb", "arb.json"),
   ];
 
   for (const p of paths) {
@@ -41,7 +41,7 @@ function loadJiraConfig(): JiraConfig {
     }
   }
 
-  throw new Error("No gh-monitor config found");
+  throw new Error("No arb config found");
 }
 
 export class JiraClient {
