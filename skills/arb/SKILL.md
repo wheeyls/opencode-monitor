@@ -121,7 +121,59 @@ arb-status         # Human-readable output
 arb-status --json  # JSON output
 ```
 
-## 7. Error Recovery
+## 7. Configuration (`arb.json`)
+
+The runtime config lives at `~/.local/share/devenv/arb/arb.json` (persistent volume). It's generated on first boot from env vars, then preserved across restarts so manual edits stick.
+
+### Watched Repos
+
+`repoDirectories` maps GitHub repos to local checkout paths. arb only dispatches events for repos it has a directory mapping for:
+
+```json
+{
+  "repoDirectories": {
+    "g2crowd/ue": "/home/developer/workspaces/ue",
+    "g2crowd/buyer_intent_api": "/home/developer/workspaces/buyer_intent_api"
+  }
+}
+```
+
+To add a repo: clone it into `~/workspaces/`, then add the mapping to `arb.json`:
+
+```bash
+cd ~/workspaces && git clone https://github.com/g2crowd/some-repo.git
+vim ~/.local/share/devenv/arb/arb.json
+# Add: "g2crowd/some-repo": "/home/developer/workspaces/some-repo"
+restart
+```
+
+### Jira Settings
+
+```json
+{
+  "jira": {
+    "baseUrl": "https://g2crowd.atlassian.net",
+    "email": "you@g2.com",
+    "jql": "\"Epic Link\" = LABS-918 AND status != Done ORDER BY updated DESC"
+  },
+  "jiraWorkingDir": "/home/developer/workspaces/ue"
+}
+```
+
+- `jql` — controls which Jira tickets arb watches. Change the epic key to watch a different board.
+- `jiraWorkingDir` — the OpenCode working directory for Jira-dispatched sessions.
+- `JIRA_API_TOKEN` comes from `.opencode-env` (set via `setup`), not from `arb.json`.
+
+### Reset Config
+
+To regenerate `arb.json` from env vars (loses manual edits):
+
+```bash
+rm ~/.local/share/devenv/arb/arb.json
+restart
+```
+
+## 8. Error Recovery
 
 ### Jira CLI Fails
 
