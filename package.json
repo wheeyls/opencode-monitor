@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "arb-jira": "dist/jira-cli.js",
-    "arb-status": "dist/status-cli.js"
+    "arb-status": "dist/status-cli.js",
+    "arb": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",

@@ -62,7 +62,7 @@
   "jira": {
     "baseUrl": "https://g2crowd.atlassian.net",
     "email": "mike@g2.com",
-    "jql": "\"Epic Link\" = LABS-918 AND status != Done ORDER BY updated DESC"
+    "jql": "parent = LABS-918 AND status != Done ORDER BY updated DESC"
   },
   "jiraWorkingDir": "~/code/ue"
 }

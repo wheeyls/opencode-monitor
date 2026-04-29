@@ -160,6 +160,7 @@ export class Dispatcher {
       path: { id: sessionId },
       query: { directory },
       body: {
+        agent: "sisyphus",
         parts: [{ type: "text", text: prompt }],
       },
     });
