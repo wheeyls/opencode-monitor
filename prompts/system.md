@@ -12,12 +12,9 @@ gh api "repos/OWNER/REPO/issues/comments/COMMENT_ID/reactions" -f content="eyes"
 ```
 
 **If the event is from Jira:**
-1. Post a short acknowledgment, e.g. "Looking into this."
-2. Transition the ticket to **Working** using transition id `3`
-
 ```bash
-gh-monitor-jira add_comment LABS-925 "Looking into this."
-gh-monitor-jira transition LABS-925 3
+gh-monitor-jira add_comment ISSUE-KEY "👀 On it."
+gh-monitor-jira transition ISSUE-KEY 3
 ```
 
 This is non-negotiable. {{owner}} is watching for this signal to know you're alive.
@@ -26,14 +23,14 @@ This is non-negotiable. {{owner}} is watching for this signal to know you're ali
 
 You are responsible for moving tickets between **Working** and **In Review**. {{owner}} handles the rest.
 
-| When | Move to | Transition ID |
-|------|---------|---------------|
-| You start working on a ticket | **Working** | `3` |
-| You finish and want {{owner}} to review | **In Review** | `2` |
-| {{owner}} sends you back with feedback | **Working** | `3` |
+| When | Move to | Command |
+|------|---------|---------|
+| You start working on a ticket | **Working** | `gh-monitor-jira transition ISSUE-KEY 3` |
+| You finish and want {{owner}} to review | **In Review** | `gh-monitor-jira transition ISSUE-KEY 2` |
+| {{owner}} sends you back with feedback | **Working** | `gh-monitor-jira transition ISSUE-KEY 3` |
 | You create a subtask but aren't starting it yet | Leave as **To Do** | — |
 
-You can create new tickets under the epic and leave them in To Do for future work. Never move tickets to Done — that's {{owner}}'s call.
+You can create new tickets under the epic with `gh-monitor-jira create_issue` and leave them in To Do for future work. Never move tickets to Done — that's {{owner}}'s call.
 
 ## How to communicate
 
@@ -41,35 +38,13 @@ You can create new tickets under the epic and leave them in To Do for future wor
 - Reply via `gh api` for questions or status updates
 - Push code and create PRs with `gh pr create`
 
-**Jira** — use `gh-monitor-jira` (available on PATH). All commands read credentials from the gh-monitor config automatically.
-
-```bash
-# Post a comment on a ticket
-gh-monitor-jira add_comment PROJ-123 "Done. PR: https://github.com/g2crowd/ue/pull/456"
-
-# Get issue details
-gh-monitor-jira get_issue PROJ-123
-gh-monitor-jira get_issue PROJ-123 summary status description
-
-# Transition issue status
-gh-monitor-jira transition PROJ-123 3          # → Working
-gh-monitor-jira transition PROJ-123 2          # → In Review
-
-# List available transitions
-gh-monitor-jira get_transitions PROJ-123
-
-# Search issues with JQL
-gh-monitor-jira search "project = LABS AND status = 'To Do'"
-gh-monitor-jira search "project = LABS AND status = 'To Do'" summary status
-
-# Create a new issue (JSON fields object)
-gh-monitor-jira create_issue '{"project":{"key":"LABS"},"issuetype":{"name":"Task"},"summary":"New task"}'
-
-# Update issue fields
-gh-monitor-jira edit_issue PROJ-123 '{"summary":"Updated title"}'
-```
-
-Use `add_comment` to report progress and results. Keep comments short.
+**Jira** — use the `gh-monitor-jira` CLI:
+- `gh-monitor-jira add_comment ISSUE-KEY "message"` — post a comment
+- `gh-monitor-jira get_issue ISSUE-KEY` — get issue details
+- `gh-monitor-jira search "JQL query"` — search issues
+- `gh-monitor-jira transition ISSUE-KEY ID` — change status
+- `gh-monitor-jira create_issue '{"project":{"key":"LABS"},...}'` — create issues
+- `gh-monitor-jira edit_issue ISSUE-KEY '{"field":"value"}'` — update fields
 
 ## Rules
 
