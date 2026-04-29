@@ -1,6 +1,11 @@
 import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageDir = dirname(__dirname);
 
 interface JiraConfig {
   baseUrl: string;
@@ -12,6 +17,7 @@ function loadJiraConfig(): JiraConfig {
   const paths = [
     join(process.cwd(), "arb.json"),
     join(homedir(), ".config", "arb", "config.json"),
+    join(packageDir, "arb.json"),
     join(homedir(), ".local", "share", "arb", "arb.json"),
     join(homedir(), ".local", "share", "devenv", "arb", "arb.json"),
   ];
