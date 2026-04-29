@@ -51,6 +51,7 @@ export class JiraPoller {
   private seen: Set<string>;
   private stateDir: string;
   private seenFile: string;
+  private coldStart: boolean;
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: JiraPollerConfig) {
@@ -64,9 +65,11 @@ export class JiraPoller {
 
     mkdirSync(this.stateDir, { recursive: true });
 
-    this.seen = existsSync(this.seenFile)
+    const hasStateFile = existsSync(this.seenFile);
+    this.seen = hasStateFile
       ? new Set(readFileSync(this.seenFile, "utf-8").split("\n").filter(Boolean))
       : new Set();
+    this.coldStart = !hasStateFile;
   }
 
   start(onEvent: (event: MonitorEvent) => void): void {
@@ -86,6 +89,13 @@ export class JiraPoller {
   private async poll(onEvent: (event: MonitorEvent) => void): Promise<void> {
     try {
       const issues = await this.fetchIssues();
+
+      if (this.coldStart) {
+        this.seedSeen(issues);
+        this.coldStart = false;
+        console.log(`[jira] Cold start: seeded ${this.seen.size} seen keys, skipping dispatch`);
+        return;
+      }
 
       for (const issue of issues) {
         const descriptionText = extractText(issue.fields.description);
@@ -110,6 +120,15 @@ export class JiraPoller {
       }
     } catch (err) {
       console.error(`[jira] Poll error:`, (err as Error).message);
+    }
+  }
+
+  private seedSeen(issues: JiraIssue[]): void {
+    for (const issue of issues) {
+      this.markSeen(`issue_${issue.key}`);
+      for (const comment of issue.fields.comment?.comments ?? []) {
+        this.markSeen(`comment_${issue.key}_${comment.id}`);
+      }
     }
   }
 

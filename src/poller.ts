@@ -48,6 +48,7 @@ export class GitHubPoller {
   private org: string;
   private intervalMs: number;
   private triggerPhrases: string[];
+  private coldStart: boolean;
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: PollerConfig) {
@@ -60,9 +61,11 @@ export class GitHubPoller {
 
     mkdirSync(this.stateDir, { recursive: true });
 
-    this.seen = existsSync(this.seenFile)
+    const hasStateFile = existsSync(this.seenFile);
+    this.seen = hasStateFile
       ? new Set(readFileSync(this.seenFile, "utf-8").split("\n").filter(Boolean))
       : new Set();
+    this.coldStart = !hasStateFile;
 
     this.lastPoll = existsSync(this.lastPollFile)
       ? readFileSync(this.lastPollFile, "utf-8").trim()
@@ -88,13 +91,22 @@ export class GitHubPoller {
     const since = this.lastPoll.split("T")[0];
     const now = new Date().toISOString();
 
+    // On cold start, run the poll with a no-op callback to seed the seen set
+    // without dispatching any events
+    const callback = this.coldStart ? () => {} : onEvent;
+
     try {
-      this.pollMyIssues(since, onEvent);
-      this.pollMyPRs(since, onEvent);
-      this.pollCommentedIssues(since, onEvent);
-      this.pollCommentedPRs(since, onEvent);
+      this.pollMyIssues(since, callback);
+      this.pollMyPRs(since, callback);
+      this.pollCommentedIssues(since, callback);
+      this.pollCommentedPRs(since, callback);
     } catch (err) {
       console.error(`[github] Poll error:`, (err as Error).message);
+    }
+
+    if (this.coldStart) {
+      console.log(`[github] Cold start: seeded ${this.seen.size} seen keys, skipping dispatch`);
+      this.coldStart = false;
     }
 
     this.lastPoll = now;

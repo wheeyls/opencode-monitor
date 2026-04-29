@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import "dotenv/config";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";

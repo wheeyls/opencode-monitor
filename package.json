@@ -5,6 +5,7 @@
   "type": "module",
   "bin": {
     "arb-jira": "dist/jira-cli.js",
+    "arb-kick": "dist/kick-cli.js",
     "arb-status": "dist/status-cli.js",
     "arb": "dist/index.js"
   },

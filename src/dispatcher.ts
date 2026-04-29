@@ -160,7 +160,6 @@ export class Dispatcher {
       path: { id: sessionId },
       query: { directory },
       body: {
-        agent: "sisyphus",
         parts: [{ type: "text", text: prompt }],
       },
     });
@@ -215,6 +214,12 @@ export class Dispatcher {
   }
 
   private formatEvent(event: MonitorEvent): string {
+    const meta = event.meta ?? {};
+    if (meta.kick) {
+      const msg = (meta.kickMessage as string) || `User-initiated check-in. Review the current state of ${event.key} and continue any outstanding work.`;
+      return `[kick] ${event.key}\n\n${msg}\n\nURL: ${event.url}`;
+    }
+
     const parts: string[] = [];
 
     parts.push(`[${event.source}] ${event.type}: ${event.key}`);
