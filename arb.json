@@ -58,7 +58,7 @@
     "g2crowd/zoom_info": "~/code/zoom_info"
   },
   "intervalMs": 60000,
-  "triggerPhrases": ["@ai", "@agent"],
+  "triggerPhrases": ["/ai", "ai:"],
   "jira": {
     "baseUrl": "https://g2crowd.atlassian.net",
     "email": "mike@g2.com",

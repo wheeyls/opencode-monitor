@@ -50,6 +50,7 @@ export class GitHubPoller {
   private triggerPhrases: string[];
   private coldStart: boolean;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private polledPRs: Set<string> = new Set();
 
   constructor(config: PollerConfig) {
     this.org = config.org ?? "g2crowd";
@@ -94,6 +95,7 @@ export class GitHubPoller {
     // On cold start, run the poll with a no-op callback to seed the seen set
     // without dispatching any events
     const callback = this.coldStart ? () => {} : onEvent;
+    this.polledPRs.clear();
 
     try {
       this.pollMyIssues(since, callback);
@@ -144,6 +146,7 @@ export class GitHubPoller {
 
     for (const item of results.items ?? []) {
       const repo = repoFromUrl(item.repository_url);
+      this.polledPRs.add(item.html_url);
 
       const text = `${item.title}\n${item.body ?? ""}`;
       if (this.matchesTrigger(text) && !this.markSeen(`pr_${item.html_url}`)) {
@@ -159,6 +162,7 @@ export class GitHubPoller {
         });
       }
 
+      this.fetchNewComments(repo, item.number, "pr", onEvent, item.title, item.body);
       this.fetchReviewComments(repo, item.number, onEvent, item.title, item.body);
     }
   }
@@ -182,10 +186,12 @@ export class GitHubPoller {
     );
 
     for (const item of results.items ?? []) {
+      if (this.polledPRs.has(item.html_url)) continue;
       if (this.markSeen(`commented_pr_${item.html_url}_${item.updated_at}`)) continue;
 
       const repo = repoFromUrl(item.repository_url);
       this.fetchNewComments(repo, item.number, "pr", onEvent, item.title, item.body);
+      this.fetchReviewComments(repo, item.number, onEvent, item.title, item.body);
     }
   }
 
