@@ -16,13 +16,15 @@ interface JiraConfig {
 
 interface Config {
   org?: string;
-  repoDirectories: Record<string, string>;
+  repoDirectories?: Record<string, string>;
+  reposDir?: string;
   owner?: string;
   intervalMs?: number;
   triggerPhrases?: string[];
   opencodeUrl?: string;
   jira?: JiraConfig;
-  jiraWorkingDir?: string;
+  workingDir?: string;
+  jiraWorkingDir?: string; // deprecated, use workingDir
 }
 
 function loadConfig(): Config {
@@ -52,19 +54,32 @@ async function main(): Promise<void> {
   const intervalMs = config.intervalMs ?? 60_000;
 
   const repoDirectories: Record<string, string> = {};
-  for (const [repo, dir] of Object.entries(config.repoDirectories)) {
+  for (const [repo, dir] of Object.entries(config.repoDirectories ?? {})) {
     repoDirectories[repo] = expandHome(dir);
   }
+  const reposDir = config.reposDir ? expandHome(config.reposDir) : undefined;
+  const workingDir = (config.workingDir ?? config.jiraWorkingDir)
+    ? expandHome((config.workingDir ?? config.jiraWorkingDir)!)
+    : undefined;
 
-  const jiraWorkingDir = config.jiraWorkingDir ? expandHome(config.jiraWorkingDir) : undefined;
+  function resolveDirectory(event: MonitorEvent): string | undefined {
+    // Top-level workingDir applies to all sources
+    if (workingDir) return workingDir;
+    // Fall back to per-repo resolution for GitHub events
+    if (event.repo) {
+      if (repoDirectories[event.repo]) return repoDirectories[event.repo];
+      if (reposDir) {
+        const dir = join(reposDir, event.repo.split("/").pop()!);
+        return existsSync(dir) ? dir : undefined;
+      }
+    }
+    return undefined;
+  }
 
   const dispatcher = new Dispatcher({
     serverUrl: config.opencodeUrl,
     owner: config.owner,
-    directoryResolver: (event: MonitorEvent) => {
-      if (event.source === "jira") return jiraWorkingDir;
-      return event.repo ? repoDirectories[event.repo] : undefined;
-    },
+    directoryResolver: resolveDirectory,
   });
 
   let countdown = Math.floor(intervalMs / 1000);

@@ -26,11 +26,13 @@ Examples:
 
 interface Config {
   org?: string;
-  repoDirectories: Record<string, string>;
+  repoDirectories?: Record<string, string>;
+  reposDir?: string;
   owner?: string;
   opencodeUrl?: string;
   jira?: { baseUrl: string; email: string; apiToken: string };
-  jiraWorkingDir?: string;
+  workingDir?: string;
+  jiraWorkingDir?: string; // deprecated, use workingDir
 }
 
 function loadConfig(): Config {
@@ -152,10 +154,13 @@ async function main(): Promise<void> {
   const config = loadConfig();
 
   const repoDirectories: Record<string, string> = {};
-  for (const [repo, dir] of Object.entries(config.repoDirectories)) {
+  for (const [repo, dir] of Object.entries(config.repoDirectories ?? {})) {
     repoDirectories[repo] = expandHome(dir);
   }
-  const jiraWorkingDir = config.jiraWorkingDir ? expandHome(config.jiraWorkingDir) : undefined;
+  const reposDir = config.reposDir ? expandHome(config.reposDir) : undefined;
+  const workingDir = (config.workingDir ?? config.jiraWorkingDir)
+    ? expandHome((config.workingDir ?? config.jiraWorkingDir)!)
+    : undefined;
 
   let event: MonitorEvent;
 
@@ -184,8 +189,15 @@ async function main(): Promise<void> {
     serverUrl: config.opencodeUrl,
     owner: config.owner,
     directoryResolver: (e: MonitorEvent) => {
-      if (e.source === "jira") return jiraWorkingDir;
-      return e.repo ? repoDirectories[e.repo] : undefined;
+      if (workingDir) return workingDir;
+      if (e.repo) {
+        if (repoDirectories[e.repo]) return repoDirectories[e.repo];
+        if (reposDir) {
+          const dir = join(reposDir, e.repo.split("/").pop()!);
+          return existsSync(dir) ? dir : undefined;
+        }
+      }
+      return undefined;
     },
   });
 
