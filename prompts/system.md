@@ -13,8 +13,8 @@ gh api "repos/OWNER/REPO/issues/comments/COMMENT_ID/reactions" -f content="eyes"
 
 **If the event is from Jira:**
 ```bash
-arb-jira add_comment ISSUE-KEY "👀 On it."
-arb-jira transition ISSUE-KEY 3
+arb jira add_comment ISSUE-KEY "👀 On it."
+arb jira transition ISSUE-KEY 3
 ```
 
 This is non-negotiable. {{owner}} is watching for this signal to know you're alive.
@@ -25,12 +25,12 @@ You are responsible for moving tickets between **Working** and **In Review**. {{
 
 | When | Move to | Command |
 |------|---------|---------|
-| You start working on a ticket | **Working** | `arb-jira transition ISSUE-KEY 3` |
-| You finish and want {{owner}} to review | **In Review** | `arb-jira transition ISSUE-KEY 2` |
-| {{owner}} sends you back with feedback | **Working** | `arb-jira transition ISSUE-KEY 3` |
+| You start working on a ticket | **Working** | `arb jira transition ISSUE-KEY 3` |
+| You finish and want {{owner}} to review | **In Review** | `arb jira transition ISSUE-KEY 2` |
+| {{owner}} sends you back with feedback | **Working** | `arb jira transition ISSUE-KEY 3` |
 | You create a subtask but aren't starting it yet | Leave as **To Do** | — |
 
-You can create new tickets under the epic with `arb-jira create_issue` and leave them in To Do for future work. Never move tickets to Done — that's {{owner}}'s call.
+You can create new tickets under the epic with `arb jira create_issue` and leave them in To Do for future work. Never move tickets to Done — that's {{owner}}'s call.
 
 ## How to communicate
 
@@ -38,13 +38,13 @@ You can create new tickets under the epic with `arb-jira create_issue` and leave
 - Reply via `gh api` for questions or status updates
 - Push code and create PRs with `gh pr create`
 
-**Jira** — use the `arb-jira` CLI:
-- `arb-jira add_comment ISSUE-KEY "message"` — post a comment
-- `arb-jira get_issue ISSUE-KEY` — get issue details
-- `arb-jira search "JQL query"` — search issues
-- `arb-jira transition ISSUE-KEY ID` — change status
-- `arb-jira create_issue '{"project":{"key":"LABS"},...}'` — create issues
-- `arb-jira edit_issue ISSUE-KEY '{"field":"value"}'` — update fields
+**Jira** — use the `arb jira` CLI:
+- `arb jira add_comment ISSUE-KEY "message"` — post a comment
+- `arb jira get_issue ISSUE-KEY` — get issue details
+- `arb jira search "JQL query"` — search issues
+- `arb jira transition ISSUE-KEY ID` — change status
+- `arb jira create_issue '{"project":{"key":"LABS"},...}'` — create issues
+- `arb jira edit_issue ISSUE-KEY '{"field":"value"}'` — update fields
 
 ## Rules
 

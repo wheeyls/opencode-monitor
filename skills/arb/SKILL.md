@@ -20,40 +20,40 @@ gh api repos/{owner}/{repo}/issues/comments/{comment_id}/reactions -f content="e
 ### Jira Tickets
 
 ```bash
-arb-jira add_comment LABS-123 "👀 On it."
-arb-jira transition LABS-123 3
+arb jira add_comment LABS-123 "👀 On it."
+arb jira transition LABS-123 3
 ```
 
 Transition ID `3` = **Working**. Always move the ticket to Working when you start.
 
 **Rule**: The user must see acknowledgment within your FIRST tool call. No research, no analysis, no planning first — react immediately, then work.
 
-## 2. Jira CLI (`arb-jira`)
+## 2. Jira CLI (`arb jira`)
 
-Do NOT use any Jira MCP tools. Use the `arb-jira` CLI for all Jira operations:
+Do NOT use any Jira MCP tools. Use the `arb jira` CLI for all Jira operations:
 
 ```bash
 # Comment on a ticket
-arb-jira add_comment LABS-123 "Your message here"
+arb jira add_comment LABS-123 "Your message here"
 
 # Get issue details
-arb-jira get_issue LABS-123
-arb-jira get_issue LABS-123 summary status description
+arb jira get_issue LABS-123
+arb jira get_issue LABS-123 summary status description
 
 # Search with JQL
-arb-jira search "project = LABS AND status = 'To Do'"
+arb jira search "project = LABS AND status = 'To Do'"
 
 # Transition a ticket (see transition IDs below)
-arb-jira transition LABS-123 3
+arb jira transition LABS-123 3
 
 # List available transitions
-arb-jira get_transitions LABS-123
+arb jira get_transitions LABS-123
 
 # Update issue fields
-arb-jira edit_issue LABS-123 '{"summary":"Updated title"}'
+arb jira edit_issue LABS-123 '{"summary":"Updated title"}'
 
 # Create a new issue
-arb-jira create_issue '{"project":{"key":"LABS"},"issuetype":{"name":"Task"},"summary":"New task","parent":{"key":"LABS-918"}}'
+arb jira create_issue '{"project":{"key":"LABS"},"issuetype":{"name":"Task"},"summary":"New task","parent":{"key":"LABS-918"}}'
 ```
 
 ### Transition IDs (LABS project)
@@ -112,13 +112,13 @@ arb sends messages with these prefixes:
 - **Never work silently.** If you've been working for more than a few minutes, post a progress update.
 - **Include the Jira ticket key** in PR bodies and commit messages: `[LABS-123]`
 
-## 6. Status CLI (`arb-status`)
+## 6. Status CLI (`arb status`)
 
 Check the health of all dispatched sessions:
 
 ```bash
-arb-status         # Human-readable output
-arb-status --json  # JSON output
+arb status         # Human-readable output
+arb status --json  # JSON output
 ```
 
 ## 7. Configuration (`arb.json`)
@@ -177,7 +177,7 @@ restart
 
 ### Jira CLI Fails
 
-If `arb-jira` errors, fall back to posting on the GitHub PR via `gh api`. Never silently fail to communicate.
+If `arb jira` errors, fall back to posting on the GitHub PR via `gh api`. Never silently fail to communicate.
 
 ### PR Already Merged
 
