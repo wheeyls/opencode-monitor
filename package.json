@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "bin": {
+    "arb": "dist/cli.js",
     "arb-jira": "dist/jira-cli.js",
     "arb-kick": "dist/kick-cli.js",
-    "arb-status": "dist/status-cli.js",
-    "arb": "dist/index.js"
+    "arb-status": "dist/status-cli.js"
   },
   "scripts": {
     "build": "tsc",
