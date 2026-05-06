@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import type { MonitorEvent } from "./events.js";
 import { JiraClient } from "./jira-client.js";
-import { Dispatcher } from "./dispatcher.js";
+import { createDispatcher } from "./create-dispatcher.js";
 
 const USAGE = `Usage: arb-kick <source> <key> [message]
 
@@ -30,6 +30,8 @@ interface Config {
   reposDir?: string;
   owner?: string;
   opencodeUrl?: string;
+  arbServerUrl?: string;
+  arbServerToken?: string;
   jira?: { baseUrl: string; email: string; apiToken: string };
   workingDir?: string;
   jiraWorkingDir?: string; // deprecated, use workingDir
@@ -185,8 +187,10 @@ async function main(): Promise<void> {
 
   console.log(`[kick] Dispatching ${event.source}/${event.type}: ${event.key}`);
 
-  const dispatcher = new Dispatcher({
-    serverUrl: config.opencodeUrl,
+  const dispatcher = createDispatcher({
+    arbServerUrl: config.arbServerUrl,
+    arbServerToken: config.arbServerToken,
+    opencodeUrl: config.opencodeUrl,
     owner: config.owner,
     directoryResolver: (e: MonitorEvent) => {
       if (workingDir) return workingDir;

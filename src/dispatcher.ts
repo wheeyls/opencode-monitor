@@ -4,6 +4,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { MonitorEvent } from "./events.js";
+import type { DispatcherPort, SessionStatus } from "./dispatcher-port.js";
+import { EventFormatter } from "./event-formatter.js";
 
 interface SessionEntry {
   sessionId: string;
@@ -22,23 +24,22 @@ export interface DispatcherConfig {
   directoryResolver: (event: MonitorEvent) => string | undefined;
 }
 
-export class Dispatcher {
+export class Dispatcher implements DispatcherPort {
   private client: OpencodeClient;
   private sessions: SessionMap;
   private sessionsFile: string;
-  private promptDir: string;
   private resolveDirectory: (event: MonitorEvent) => string | undefined;
-  private owner: string;
-  private systemPrompt: string | null = null;
-  private systemPromptLoaded = false;
+  private formatter: EventFormatter;
 
   constructor(config: DispatcherConfig) {
     const stateDir = config.stateDir ?? join(homedir(), ".local", "share", "arb");
     mkdirSync(stateDir, { recursive: true });
     this.sessionsFile = join(stateDir, "sessions.json");
-    this.promptDir = config.promptDir ?? join(process.cwd(), "prompts");
     this.resolveDirectory = config.directoryResolver;
-    this.owner = config.owner ?? "the user";
+    this.formatter = new EventFormatter({
+      promptDir: config.promptDir ?? join(process.cwd(), "prompts"),
+      owner: config.owner ?? "the user",
+    });
 
     this.client = createOpencodeClient({
       baseUrl: config.serverUrl ?? "http://localhost:4096",
@@ -84,8 +85,8 @@ export class Dispatcher {
     })();
   }
 
-  async getStatus(): Promise<Array<{ key: string; sessionId: string; source: string; status: string; detail?: string }>> {
-    const results: Array<{ key: string; sessionId: string; source: string; status: string; detail?: string }> = [];
+  async getStatus(): Promise<SessionStatus[]> {
+    const results: SessionStatus[] = [];
 
     if (Object.keys(this.sessions).length === 0) return results;
 
@@ -151,8 +152,8 @@ export class Dispatcher {
     }
 
     const prompt = isNew
-      ? this.buildInitialPrompt(event)
-      : this.formatEvent(event);
+      ? this.formatter.buildInitialPrompt(event)
+      : this.formatter.formatEvent(event);
 
     console.log(`[dispatcher] Sending to ${sessionId}: ${prompt.slice(0, 80)}...`);
 
@@ -183,62 +184,6 @@ export class Dispatcher {
       console.log(`[dispatcher] Linked ${event.key} → ${jiraKey} (found ${match[1]} in PR)`);
     }
     return entry;
-  }
-
-  private buildInitialPrompt(event: MonitorEvent): string {
-    const system = this.loadSystemPrompt();
-    const eventText = this.formatEvent(event);
-
-    if (system) {
-      return `${system}\n\n---\n\n${eventText}`;
-    }
-    return eventText;
-  }
-
-  private loadSystemPrompt(): string | null {
-    if (this.systemPromptLoaded) return this.systemPrompt;
-    this.systemPromptLoaded = true;
-
-    const filePath = join(this.promptDir, "system.md");
-    if (!existsSync(filePath)) {
-      console.warn(`[dispatcher] No system prompt at ${filePath}`);
-      return null;
-    }
-
-    const raw = readFileSync(filePath, "utf-8");
-    this.systemPrompt = raw.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
-      if (key === "owner") return this.owner;
-      return `{{${key}}}`;
-    });
-    return this.systemPrompt;
-  }
-
-  private formatEvent(event: MonitorEvent): string {
-    const meta = event.meta ?? {};
-    if (meta.kick) {
-      const msg = (meta.kickMessage as string) || `User-initiated check-in. Review the current state of ${event.key} and continue any outstanding work.`;
-      return `[kick] ${event.key}\n\n${msg}\n\nURL: ${event.url}`;
-    }
-
-    const parts: string[] = [];
-
-    parts.push(`[${event.source}] ${event.type}: ${event.key}`);
-    parts.push(event.body);
-    parts.push(`URL: ${event.url}`);
-
-    if (event.source === "github") {
-      const meta = event.meta ?? {};
-      if (meta.file) parts.push(`File: ${meta.file}:${meta.line ?? ""}`);
-      if (meta.diffHunk) parts.push(`\`\`\`diff\n${meta.diffHunk}\n\`\`\``);
-    }
-
-    if (event.source === "jira") {
-      const meta = event.meta ?? {};
-      if (meta.issueKey) parts.push(`Issue: ${meta.issueKey}`);
-      if (meta.status) parts.push(`Status: ${meta.status}`);
-    }
-
-    return parts.join("\n\n");
   }
 
   private saveSessions(): void {

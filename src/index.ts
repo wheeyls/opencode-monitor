@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import type { MonitorEvent } from "./events.js";
 import { GitHubPoller } from "./poller.js";
 import { JiraPoller } from "./jira-poller.js";
-import { Dispatcher } from "./dispatcher.js";
+import { createDispatcher } from "./create-dispatcher.js";
 
 interface JiraConfig {
   baseUrl: string;
@@ -22,6 +22,8 @@ interface Config {
   intervalMs?: number;
   triggerPhrases?: string[];
   opencodeUrl?: string;
+  arbServerUrl?: string;
+  arbServerToken?: string;
   jira?: JiraConfig;
   workingDir?: string;
   jiraWorkingDir?: string; // deprecated, use workingDir
@@ -76,8 +78,10 @@ async function main(): Promise<void> {
     return undefined;
   }
 
-  const dispatcher = new Dispatcher({
-    serverUrl: config.opencodeUrl,
+  const dispatcher = createDispatcher({
+    arbServerUrl: config.arbServerUrl,
+    arbServerToken: config.arbServerToken,
+    opencodeUrl: config.opencodeUrl,
     owner: config.owner,
     directoryResolver: resolveDirectory,
   });
