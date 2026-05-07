@@ -1,0 +1,16 @@
+{
+  "name": "@arb/work-queue",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.1",
+    "typescript": "^5.7.0"
+  }
+}

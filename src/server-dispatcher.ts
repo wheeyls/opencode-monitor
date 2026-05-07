@@ -64,7 +64,15 @@ export class ServerQueueDispatcher implements DispatcherPort {
       });
 
       if (!res.ok) return [];
-      return await res.json() as SessionStatus[];
+      const summary = await res.json() as Record<string, number>;
+      return Object.entries(summary)
+        .filter(([_, count]) => count > 0)
+        .map(([status, count]) => ({
+          key: `${status}: ${count}`,
+          sessionId: "",
+          source: "server",
+          status,
+        }));
     } catch {
       return [];
     }

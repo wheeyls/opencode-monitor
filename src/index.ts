@@ -1,11 +1,12 @@
 import "dotenv/config";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { MonitorEvent } from "./events.js";
 import { GitHubPoller } from "./poller.js";
 import { JiraPoller } from "./jira-poller.js";
 import { createDispatcher } from "./create-dispatcher.js";
+import { loadConfig as loadConfigFile, expandHome } from "./config.js";
 
 interface JiraConfig {
   baseUrl: string;
@@ -26,29 +27,11 @@ interface Config {
   arbServerToken?: string;
   jira?: JiraConfig;
   workingDir?: string;
-  jiraWorkingDir?: string; // deprecated, use workingDir
+  jiraWorkingDir?: string;
 }
 
 function loadConfig(): Config {
-  const paths = [
-    join(process.cwd(), "arb.json"),
-    join(homedir(), ".config", "arb", "config.json"),
-  ];
-
-  for (const p of paths) {
-    if (existsSync(p)) {
-      console.log(`[config] Loading ${p}`);
-      return JSON.parse(readFileSync(p, "utf-8"));
-    }
-  }
-
-  throw new Error(
-    `No config found. Create arb.json or ~/.config/arb/config.json`
-  );
-}
-
-function expandHome(p: string): string {
-  return p.replace(/^~/, homedir());
+  return loadConfigFile(process.env.ARB_CONFIG_PATH) as Config;
 }
 
 async function main(): Promise<void> {

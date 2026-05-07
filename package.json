@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "bin": {
     "arb": "dist/cli.js",
     "arb-jira": "dist/jira-cli.js",
