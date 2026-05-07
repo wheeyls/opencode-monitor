@@ -22,6 +22,27 @@ export class WorkThread {
     this.affinityKey = props.affinityKey;
   }
 
+  static fromSnapshot(snapshot: {
+    id: string;
+    userId: string;
+    affinityKey: string;
+    preferredClientId: string | null;
+    preferredClientExpiresAt: Date | null;
+    lastSessionRef: string | null;
+    nextSequence: number;
+  }): WorkThread {
+    const thread = new WorkThread({
+      id: snapshot.id,
+      userId: snapshot.userId,
+      affinityKey: snapshot.affinityKey,
+    });
+    thread._preferredClientId = snapshot.preferredClientId;
+    thread._preferredClientExpiresAt = snapshot.preferredClientExpiresAt;
+    thread._lastSessionRef = snapshot.lastSessionRef;
+    thread._nextSequence = snapshot.nextSequence;
+    return thread;
+  }
+
   get preferredClientId(): string | null {
     return this._preferredClientId;
   }

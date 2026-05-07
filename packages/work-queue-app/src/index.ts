@@ -29,3 +29,10 @@ export type { RegisterClientInput, RegisterClientResult, RegisterClientDeps } fr
 
 export { manualKick } from "./use-cases/manual-kick.js";
 export type { ManualKickInput, ManualKickDeps } from "./use-cases/manual-kick.js";
+
+// In-memory fakes (for dev servers and composition roots)
+export { FakeWorkItemRepository } from "./fakes/fake-work-item-repository.js";
+export { FakeWorkThreadRepository } from "./fakes/fake-work-thread-repository.js";
+export { FakeClientRepository } from "./fakes/fake-client-repository.js";
+export { FakeIdGenerator } from "./fakes/fake-id-generator.js";
+export { FakeUnitOfWork } from "./fakes/fake-unit-of-work.js";

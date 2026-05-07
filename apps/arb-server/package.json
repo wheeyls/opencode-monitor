@@ -11,6 +11,7 @@
   "dependencies": {
     "@arb/work-queue": "*",
     "@arb/work-queue-app": "*",
+    "@arb/queue-persistence": "*",
     "google-auth-library": "^10.6.2",
     "next": "16.2.4",
     "react": "19.2.4",

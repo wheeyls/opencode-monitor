@@ -176,9 +176,9 @@ export function getSession(request: Request): SessionPayload | null {
 
 /**
  * Check if the request has a valid Bearer token (for API clients like arb CLI).
- * For now, validates against the session token format.
+ * Tries session token format first, then checks stored API token hashes.
  */
-export function getApiAuth(request: Request): SessionPayload | null {
+export async function getApiAuth(request: Request): Promise<SessionPayload | null> {
   if (
     process.env.DEV_BYPASS_AUTH === "true" &&
     process.env.NODE_ENV !== "production"
@@ -186,8 +186,26 @@ export function getApiAuth(request: Request): SessionPayload | null {
     return { email: "dev@g2.com", exp: Date.now() + SESSION_DURATION_MS };
   }
 
+  // Try cookie-based session first (browser requests)
+  const cookieSession = getSession(request);
+  if (cookieSession) return cookieSession;
+
+  // Try Bearer token (CLI requests)
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.slice(7);
-  return verifySessionToken(token);
+
+  // Check if it's a session token
+  const sessionPayload = verifySessionToken(token);
+  if (sessionPayload) return sessionPayload;
+
+  // Check if it's a stored API token
+  const { getUserSettingsStore } = await import("@/composition/user-settings");
+  const store = getUserSettingsStore();
+  const user = await store.verifyToken(token);
+  if (user) {
+    return { email: user.email, exp: Date.now() + SESSION_DURATION_MS };
+  }
+
+  return null;
 }

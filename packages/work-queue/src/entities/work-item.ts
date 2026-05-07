@@ -63,6 +63,47 @@ export class WorkItem {
     this._availableAt = props.availableAt;
   }
 
+  static fromSnapshot(snapshot: {
+    id: string;
+    userId: string;
+    threadId: string;
+    kind: WorkItemKind;
+    sequence: number;
+    payload: Record<string, unknown>;
+    maxAttempts: number;
+    createdAt: Date;
+    availableAt: Date;
+    status: WorkItemStatus;
+    attemptCount: number;
+    claimedByClientId: string | null;
+    leaseExpiresAt: Date | null;
+    lastHeartbeatAt: Date | null;
+    lastError: string | null;
+    completedAt: Date | null;
+    failedAt: Date | null;
+  }): WorkItem {
+    const item = new WorkItem({
+      id: snapshot.id,
+      userId: snapshot.userId,
+      threadId: snapshot.threadId,
+      kind: snapshot.kind,
+      sequence: snapshot.sequence,
+      payload: snapshot.payload,
+      maxAttempts: snapshot.maxAttempts,
+      createdAt: snapshot.createdAt,
+      availableAt: snapshot.availableAt,
+    });
+    item._status = snapshot.status;
+    item._attemptCount = snapshot.attemptCount;
+    item._claimedByClientId = snapshot.claimedByClientId;
+    item._leaseExpiresAt = snapshot.leaseExpiresAt;
+    item._lastHeartbeatAt = snapshot.lastHeartbeatAt;
+    item._lastError = snapshot.lastError;
+    item._completedAt = snapshot.completedAt;
+    item._failedAt = snapshot.failedAt;
+    return item;
+  }
+
   get status(): WorkItemStatus {
     return this._status;
   }

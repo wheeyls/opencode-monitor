@@ -15,6 +15,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <a href="/" className="text-lg font-semibold tracking-tight">
               arb
             </a>
+            <nav className="flex items-center gap-4 text-sm">
+              <a href="/" className="text-zinc-400 hover:text-zinc-100">Dashboard</a>
+              <a href="/settings" className="text-zinc-400 hover:text-zinc-100">Settings</a>
+            </nav>
           </div>
         </header>
         <main className="mx-auto w-full max-w-6xl px-6 py-6">{children}</main>

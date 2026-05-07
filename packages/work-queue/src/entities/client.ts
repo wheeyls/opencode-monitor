@@ -43,6 +43,25 @@ export class Client {
     this._livenessConfig = livenessConfig ?? DEFAULT_LIVENESS;
   }
 
+  static fromSnapshot(snapshot: {
+    id: string;
+    userId: string;
+    name: string;
+    capabilities: Record<string, unknown>;
+    registeredAt: Date;
+    lastSeenAt: Date;
+  }, livenessConfig?: LivenessConfig): Client {
+    const client = new Client({
+      id: snapshot.id,
+      userId: snapshot.userId,
+      name: snapshot.name,
+      capabilities: snapshot.capabilities,
+      registeredAt: snapshot.registeredAt,
+    }, livenessConfig);
+    client._lastSeenAt = snapshot.lastSeenAt;
+    return client;
+  }
+
   get lastSeenAt(): Date {
     return this._lastSeenAt;
   }

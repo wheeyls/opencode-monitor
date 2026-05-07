@@ -1,0 +1,19 @@
+{
+  "name": "@arb/queue-persistence",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arb/work-queue": "*",
+    "@arb/work-queue-app": "*",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.0",
+    "typescript": "^5.7.0"
+  }
+}

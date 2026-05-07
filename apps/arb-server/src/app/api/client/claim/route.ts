@@ -7,7 +7,7 @@ interface ClaimBody {
 }
 
 export async function POST(request: Request) {
-  const auth = getApiAuth(request);
+  const auth = await getApiAuth(request);
   if (!auth) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

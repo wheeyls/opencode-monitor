@@ -3,7 +3,7 @@ import {
   getActiveClients,
   getQueueSummary,
   getRecentItems,
-} from "@/composition/queue";
+} from "@/composition/dashboard-queries";
 import { AUTH_COOKIE_NAME, verifySessionToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -32,9 +32,9 @@ export default async function DashboardPage() {
     );
   }
 
-  const summary = getQueueSummary();
-  const clients = getActiveClients();
-  const items = getRecentItems();
+  const summary = await getQueueSummary();
+  const clients = await getActiveClients();
+  const items = await getRecentItems();
 
   return (
     <div className="space-y-6">
